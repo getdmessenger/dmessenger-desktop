@@ -17,14 +17,15 @@ This way, when doing a createReadStream on a particular NeutronDB, we can insure
 
 import { getDb } from './getDb'
 
-export default function createRoomFeed (opts) {
-  let db = await getDb(opts.roomName)
-  if (!opts.roomName) throw new Error('Must provide roomName in opts')
-  if (!opts.creator) throw new Error('Must provide creator in opts')
-  if (!opts.roomDescription) throw new Error('Must provide roomDescription in opts')
-  if (!opts.roomType) throw new Error('Must provide roomType in opts')
+export default async function createRoomFeed (opts) {
+  let roomDb = await getDb(opts.roomName)
 
-  db.writer('local', (err, feed) => {
+  if (!opts.roomName) throw new Error('Must provide roomName in opts')
+  if (!opts.creator) throw new Error('Must provide roomDescription in opts')
+  if (!opts.roomAvatar) throw new Error('Must provide roomAvatar in opts')
+  if (!opts.roomType) throw new Error('Must provide roomType in opts')
+  
+  roomDb.writer('local', (err, feed) => {
     if (feed.length > 0) return false
     feed.append({
       type: 'room-info',

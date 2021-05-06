@@ -19,7 +19,7 @@ export default async function appendMessage (opts) {
   if (!opts.message) throw new Error('message is required in opts')
   if (!opts.roomName) throw new Error('roomName is required in opts')
 
-  if (typeof opts != object)
+  if (typeof opts != 'object')
     throw new Error('opts must be an object')
 
   let db = await getDb(roomName)
