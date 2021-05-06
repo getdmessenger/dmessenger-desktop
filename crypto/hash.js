@@ -28,7 +28,7 @@ function ripemd160(data) {
   }
 }
 
-export default = {
+export default  {
   sha1,
   sha256,
   sha512,
