@@ -1,15 +1,22 @@
 /**
-File: data/getDb.js
+Filename: data/getDb.js
 Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This file exports a function that can used to create or retrieve a NeutronDB from a specific Basestore that is derived from the actual room name.
+Description: Module that exports the Neutron database related to a particular public room. A Neutron's discovery key is derived from the discoveryKey function, which uses '@multifeed:'+rootKey as a seed. 
 */
-
-import NeutronDB from '@neutrondb/core'
+import NeutronDb from '@neutrondb/core'
+import { deriveRootRoomKey } from './../crypto/deriveRootRoomKey'
 import { neutronOpts } from './../opts/neutronOpts'
-import { getRoomStore } from './getRoomStore'
+import { getStoreInstance } from './getStoreInstance'
 
 export default async function getDb (roomName) {
-  let roomStore = getRoomStore(roomName)
-  let db = new NeutronDB(roomStore, { valueEncoding: 'json' })
-  return db
+  let rootKey = deriveRootRoomKey(roomName)
+  let basestore = getStoreInstance()
+  await basestore.ready()
+
+  let db = new NeutronDb(basestore, {
+    rootKey: rootKey,
+    ...neutronOpts
+  })
+
+  return db  
 }

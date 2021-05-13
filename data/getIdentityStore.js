@@ -1,15 +1,14 @@
 /**
 File: data/getIdentityStore.js
 Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This module is used for deriving and retrieving a Basestore by the "identity" string. This Basestore is used for storing dDatabases related to a user's identities.
+Description: This module exports the Basestore that stores dWebIDs. The Basestore that holds identities is derived from the namespace "identities".
 */
 
-import { getClient } from './../dhub/index.js'
+import { getStoreInstance } from './getStoreInstance'
 
 export default async function getIdentityStore () {
-  const c = getClient()
-  await c.ready()
-  const store = c.basestore("identity")
+  const basestore = getStoreInstance()
+  const store = basestore.namespace("identities")
   await store.ready()
   return store
 }

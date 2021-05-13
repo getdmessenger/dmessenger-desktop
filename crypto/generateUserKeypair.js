@@ -1,17 +1,16 @@
 /**
 File: crypto/generateUserKeypair.js
 Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This module is used for creating a public/private keypair that is stored alongside a username on dWeb's DHT. It's used within the identity 'opts', within @dwebid/core (the DWebIdentity class)
+Description: Exports a module that is used for generating user keypairs, for use when creating user records on a USwarm DHT.
 */
 
-import ddatabaseCrypto from '@ddatabase/crypto'
+import idsign from '@dwebid/sign'
 
 export default function generateUserKeypair () {
-  const randomBytes = ddatabaseCrypto.randomBytes(32)
-  const { publicKey, privateKey } = ddatabaseCrypto.keypair(randomBytes)
-
+  const { keypair } = idsign()
+  const { publicKey, secretKey } = keypair()
   return {
     publicKey,
-    privateKey
+    secretKey
   }
 }
