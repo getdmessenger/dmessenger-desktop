@@ -7,11 +7,11 @@ Description: This class is used by dMessenger to interact with the local databas
 import MultiDTree from 'multi-dwebtree'
 import { NanoresourcePromise, Nanoresource } from 'nanoresource-promise/emitter'
 import { NetworkStatus } from '@dhub/rpc/messages'
-import { getStoreInstance } from './../data/getStoreInstance'
+import { getStoreInstance } from '../data/getStoreInstance'
 import {
   ROOM_PREFIX,
   LOCAL_PREFIX } from './../config'
-import { dTreeOpts } from './../opts/dTreeOpts'
+import { dTreeOpts } from '../opts/dTreeOpts'
 
 module.exports = class DMessengerLocalDb extends Nanoresource {
   construction (username) {

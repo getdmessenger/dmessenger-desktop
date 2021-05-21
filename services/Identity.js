@@ -1,29 +1,40 @@
+import EventEmitter from 'events'
 import dwebsign from 'dwebsign'
 import AES from 'aes-oop'
 import bip39 from 'bip39'
-import scrypt from 'scrypt-async'
+import scrypt from 'scypt-async'
 import { PrivateDb } from './../services/PrivateDb'
 import { getIdentityInstance } from './../identity/getIdentityInstance'
+import { generateIdError } from './../hooks/idErrorHandler'
+import { pin, pinStatus, clearPin, loginUser } from './../hooks/useIdentity'
 
-export default class Identity {
+export default class Identity extends EventEmitter {
   constructor (opts = {}) {
-    this.username = opts.username
+    this.username = username
     this.db = new PrivateDb()
     this.id = getIdentityInstance(opts.username)
   }
-  genSalt (len=32) {
+  _handleError (err) {
+    generateIdError(err)
+    this.emit('error', err)
+    throw new Error(err)
+  }
+  genSalt (len = 32) {
     return dwebsign.salt(len)
   }
   getSalt () {
     const { username, db } = this
-    return db.getSalt(username)
+    db.getSalt(username)
+        .then(node => {return node})
+        .catch(err => this._handleError(err))
   }
   storeSalt (salt) {
     const { username, db } = this
-    return db.storeSalt(salt, username)
+    db.storeSalt(salt, username)
+       .catch(err => this._handleError(err))
   }
   async hashPassword (password) {
-    return new Promise( async resolve => {
+    return new Promise (async resolve => {
       const salt = this.getSalt()
       scrypt(password, salt, {
         N: 16384,
@@ -32,9 +43,9 @@ export default class Identity {
         dkLen: 16,
         encoding: 'hex'
       }, (derivedKey) => {
-        resolve(derivedKey)
+          resolve(derivedKey)
       })
-    })
+   })
   }
   async passwordToSeed (password) {
     const hash = await this.hashPassword(password)
@@ -51,88 +62,86 @@ export default class Identity {
   decrypt (data, seed) {
     return AES.decrypt(data, seed)
   }
-  encryptSeed(pin, seed) {
+  encryptSeed (seed) {
+    if (!pinStatus) return
     return this.encrypt(seed, pin)
   }
-  getDecryptedSeed (pin) {
+  getDecryptedSeed () {
+    if (!pinStatus) return
     const { username, db } = this
-    let encryptedSeed 
+    let encryptedSeed
     db.getEncryptedSeed(username)
         .then(seed => encryptedSeed = seed)
-        .catch(err => {return new Error(err)})
+        .catch(err => this._handleError(err))
     return this.decrypt(encryptedSeed, pin)
   }
-  verifyPassword (pin, password) {
-    const seed = this.getDecryptedSeed(pin)
+  verifyPassword (password) {
+    const seed = this.getDecryptedSeed()
     const hash = await this.passwordToSeed(password)
     return seed === hash
   }
   storeSeed (seed) {
     const { username, db } = this
     db.addEncryptionSeed(seed, username)
-        .then(data => {return data})
-        .catch(err => {throw new Error(err)})
+        .catch(err => this._handleError(err))
   }
-  encryptSecretKey (pin, key) {
+  encryptSecretKey (key) {
+    if (!pinStatus) return
     const seed = this.getDecryptedSeed(pin)
     return this.encrypt(key, seed)
   }
-  decryptSecretKey  (pin, label) {
+  decryptSecretKey (label) {
+    if (!pinStatus) return
     const { id } = this
     const seed = this.getDecryptedSeed(pin)
     let secret
     id.getSecret(label)
        .then(data => secret = data)
-       .catch(err => {throw new Error('SECRET_DOES_NOT_EXIST')})
+       .catch(this._handleError('SECRET_DOES_NOT_EXIST'))
     return this.decrypt(secret, seed)
   }
   async getSecret (label) {
     const { id } = this
     await id.getSecret(label)
                 .then(secret => {return secret})
-                .catch( err => {throw new Error('SECRET_DOES_NOT_EXIST')})
+                .catch(this._handleError('SECRET_DOES_NOT_EXIST'))
   }
-  async addIdentitySecret (label , default, secretKey) {
+  async addIdentitySecret (label = 'default', secretKey) {
     const { id } = this
     await id.addIdentitySecret(label, secretKey)
-                .then( () => {return true})
-                .catch(err => {throw new Error(err)})
+                .catch(err => this._handleError(err))
   }
-  async getDefaultUser() {
+  async getDefaultUser () {
     const { id } = this
     await id.getDefaultUser()
                 .then(value => {return value})
-                .catch( () => {throw new Error('DEFAULT_ID_DOES_NOT_EXIST')})
+                .catch(this._handleError('DEFAULT_ID_DOES_NOT_EXIST'))
   }
   async getRemoteUser (user) {
     const { id } = this
     await id.getRemoteUser(user)
                 .then(value => {return value})
-                .catch( () => {throw new Error('REMOTE_USER_DOES_NOT_EXIST')})
+                .catch(this._handleError('REMOTE_USER_DOES_NOT_EXIST'))
+  }
+  async getRemoteUsers () {
+    const { id } = this
+    return id.getRemoteUsers()
   }
   async getSubIdentity (label) {
     const { id } = this
     await id.getSubIdentity(label)
                 .then(value => {return value})
-                .catch(err => {throw new Error('SUB_ID_DOES_NOT_EXIST')})
+                .catch(this._handleError('SUB_ID_DOES_NOT_EXIST'))
   }
   async addSubIdentity (label, idData) {
     const { id } = this
     await id.addSubIdentity(label, idData)
-                .then(d => {return d})
-                .catch(err => {throw new Error(err)})
+                .catch(err => this._handleError(err))
   }
   async addRemoteUser (opts) {
     const { id } = this
     id.addRemoteUser(opts)
-       .then(d => {return d})
-       .catch(err => {throw new Error(err)})
-  }
-  async addUserData (opts) {
-    const { id, username } = this
-    id.addUserData(opts)
-       .then(d => {return d})
-       .catch(err => {throw new Error(err)})
+       .catch(err => this._handleError(err))
   }
   doesDefaultExist () {
     const { id } = this
@@ -142,13 +151,14 @@ export default class Identity {
     const { id } = this
     id.getSeq()
        .then(seq => {return seq})
-       .catch(err => {throw new Error(err)})
+       .catch(err => this._handleError(err))
   }
-  checkUserAvailability () {
+  checkAvailability () {
     const { id } = this
     return id.checkUserAvailability()
   }
-  async register (password, pin) {
+  async register (password) {
+    if (!pinStatus) return
     const { username, id } = this
     id.register()
        .then(d => {
@@ -156,49 +166,46 @@ export default class Identity {
          const salt = this.genSalt()
          this.storeSalt(salt)
          const seed = await this.passwordToSeed(password)
-         const encryptedSeed = this.encryptSeed(pin, seed)
+         const encryptedSeed = this.encryptedSeed(pin, seed)
          this.storeSeed(encryptedSeed)
          const encryptedSecretKey = this.encryptSecretKey(pin, secretKey)
          await this.addIdentitySecret('default', encryptedSecretKey)
          await this.addIdentityToPrivate(username, data)
-         return data
+         loginUser(username)
+         clearPin()
        })
-       .catch(err => {throw new Error(err)})
+       .catch(err => this._handleError(err))
   }
   async addIdentityToPrivate (value) {
     const { username, db } = this
-    await db.addIdentity(username, value) 
-                 .then( () => {return true})
-                 .catch(err => {throw new Error(err)})
+    await db.addIdentity(username, value)
+                 .catch(err => this._handleError(err))
   }
-  async getIdentityFromPrivate (user) {
-    const { db } = this
-    await db.getIdentity(user)
+  async getIdentityFromPrivate () {
+    const { username, db } = this
+    await db.getIdentity(username)
                  .then(data => {return data})
-                 .catch(err => {throw new Error(err)})    
+                 .catch(err => this._handleError(err))
   }
   async deleteIdentityFromPrivate () {
     const { username, db } = this
     await db.deleteIdentity(username)
-                .then(() => {return true})
-                .catch(err => {throw new Error(err)})
+                 .catch(err => this._handleError(err))
   }
   async removeIdentity (label) {
     const { id } = this
-    await id.remoteIdentity(label)
-                .then(() => {return true})
-                .catch(() => {throw new Error('ID_DOES_NOT_EXIST')})
+    await id.removeIdentity(label)
+                .catch((err)=>{this._handleError('ID_DOES_NOT_EXIST')})
   }
   async addDevice () {
     const { id } = this
     id.addDevice()
-       .then(data => {return data})
-       .catch(err => {throw new Error(err)})
+       .catch(err => this._handleError(err))
   }
   async listIdentities () {
     const { db } = this
     db.listIdentities()
         .then(data => {return data})
-        .catch(err => {throw new Error(err)})
+        .catch(err => this._handleError(err))
   }
 }
