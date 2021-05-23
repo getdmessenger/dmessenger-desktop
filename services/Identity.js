@@ -1,23 +1,23 @@
-import EventEmitter from 'events'
+import { NanoresourcePromise, Nanoresource } from 'nanoresource-promise/emitter'
 import dwebsign from 'dwebsign'
 import AES from 'aes-oop'
 import bip39 from 'bip39'
-import scrypt from 'scypt-async'
-import { PrivateDb } from './../services/PrivateDb'
+import scrypt from 'scrypt-async'
+import { getPrivateDb } from './../data/getPrivateDb'
 import { getIdentityInstance } from './../identity/getIdentityInstance'
-import { generateIdError } from './../hooks/idErrorHandler'
-import { pin, pinStatus, clearPin, loginUser } from './../hooks/useIdentity'
 
-export default class Identity extends EventEmitter {
-  constructor (opts = {}) {
+export default class Identity extends Nanoresource {
+  constructor (opts={}) {
     this.username = username
     this.db = new PrivateDb()
-    this.id = getIdentityInstance(opts.username)
+    this.identityOpts = {
+      username: this.username, 
+    }
+    this.id = getIdentityInstance(this.identityOpts)
   }
   _handleError (err) {
-    generateIdError(err)
     this.emit('error', err)
-    throw new Error(err)
+    return new Error(err)
   }
   genSalt (len = 32) {
     return dwebsign.salt(len)
@@ -25,16 +25,16 @@ export default class Identity extends EventEmitter {
   getSalt () {
     const { username, db } = this
     db.getSalt(username)
-        .then(node => {return node})
-        .catch(err => this._handleError(err))
+       .then(node => {return node})
+       .catch(err => this._handleError(err))
   }
   storeSalt (salt) {
     const { username, db } = this
     db.storeSalt(salt, username)
-       .catch(err => this._handleError(err))
+        .catch(err => this._handleError(err))
   }
   async hashPassword (password) {
-    return new Promise (async resolve => {
+    return new Promise(async resolve => {
       const salt = this.getSalt()
       scrypt(password, salt, {
         N: 16384,
@@ -43,13 +43,13 @@ export default class Identity extends EventEmitter {
         dkLen: 16,
         encoding: 'hex'
       }, (derivedKey) => {
-          resolve(derivedKey)
+        resolve(derivedKey)
       })
-   })
+    })
   }
   async passwordToSeed (password) {
     const hash = await this.hashPassword(password)
-    let mnemonic = bip39.entropyToMnemonic(hash)
+    let mnemonic = bip39.entropytoMnemonic(hash)
     return bip39.mnemonicToSeedHex(mnemonic)
   }
   async passwordToMnemonic (password) {
@@ -62,17 +62,15 @@ export default class Identity extends EventEmitter {
   decrypt (data, seed) {
     return AES.decrypt(data, seed)
   }
-  encryptSeed (seed) {
-    if (!pinStatus) return
+  encryptSeed (pin, seed) {
     return this.encrypt(seed, pin)
   }
-  getDecryptedSeed () {
-    if (!pinStatus) return
+  getDecryptedSeed (pin) {
     const { username, db } = this
     let encryptedSeed
     db.getEncryptedSeed(username)
-        .then(seed => encryptedSeed = seed)
-        .catch(err => this._handleError(err))
+       .then(seed => encryptedSeed = seed)
+       .catch(err => this._handleError(err))
     return this.decrypt(encryptedSeed, pin)
   }
   verifyPassword (password) {
@@ -85,13 +83,11 @@ export default class Identity extends EventEmitter {
     db.addEncryptionSeed(seed, username)
         .catch(err => this._handleError(err))
   }
-  encryptSecretKey (key) {
-    if (!pinStatus) return
+  encryptSecretKey (pin, key) {
     const seed = this.getDecryptedSeed(pin)
     return this.encrypt(key, seed)
   }
-  decryptSecretKey (label) {
-    if (!pinStatus) return
+  decryptSecretKey (label, pin) {
     const { id } = this
     const seed = this.getDecryptedSeed(pin)
     let secret
@@ -157,8 +153,7 @@ export default class Identity extends EventEmitter {
     const { id } = this
     return id.checkUserAvailability()
   }
-  async register (password) {
-    if (!pinStatus) return
+  async register (pin, password) {
     const { username, id } = this
     id.register()
        .then(d => {
@@ -166,13 +161,11 @@ export default class Identity extends EventEmitter {
          const salt = this.genSalt()
          this.storeSalt(salt)
          const seed = await this.passwordToSeed(password)
-         const encryptedSeed = this.encryptedSeed(pin, seed)
+         const encryptedSeed = this.encryptSeed(pin, seed)
          this.storeSeed(encryptedSeed)
          const encryptedSecretKey = this.encryptSecretKey(pin, secretKey)
          await this.addIdentitySecret('default', encryptedSecretKey)
-         await this.addIdentityToPrivate(username, data)
-         loginUser(username)
-         clearPin()
+         await this.addIdentityToPrivate(username, data)  
        })
        .catch(err => this._handleError(err))
   }
@@ -184,18 +177,18 @@ export default class Identity extends EventEmitter {
   async getIdentityFromPrivate () {
     const { username, db } = this
     await db.getIdentity(username)
-                 .then(data => {return data})
-                 .catch(err => this._handleError(err))
+                .then(data => {return data})
+                .catch(err => this._handleError(err))
   }
   async deleteIdentityFromPrivate () {
     const { username, db } = this
     await db.deleteIdentity(username)
-                 .catch(err => this._handleError(err))
+                .catch(err => this._handleError(err))
   }
   async removeIdentity (label) {
     const { id } = this
     await id.removeIdentity(label)
-                .catch((err)=>{this._handleError('ID_DOES_NOT_EXIST')})
+                .catch(this._handleError('ID_DOES_NOT_EXIST'))
   }
   async addDevice () {
     const { id } = this
