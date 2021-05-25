@@ -14,7 +14,7 @@ import hash from './hash.js'
 
 const Long = ByteBuffer.Long
 
-export default = {
+export default {
   encrypt,
   decrypt
 }
