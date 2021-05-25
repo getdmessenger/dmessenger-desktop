@@ -1,13 +1,8 @@
-/**
-File: authentication/authHelpers.js
-Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This module exports helper functions that can be used in the dMessenger authentication process.
-*/
-
-import fs from 'fs'
 import path from 'path'
-import { getPrivateDb } from './../data/getPrivateDb'
-import { getIdentityDb } from './../data/getIdentityDb'
+import fs from 'fs'
+import { IdQuery } from '@dwebid/query'
+import { PrivateDb } from './../services/PrivateDb'
+import { getIdentityInstance } from './../identity/getIdentityInstance'
 import { ID_DIR } from './../config'
 
 export async function identityExists (user) {
@@ -15,26 +10,61 @@ export async function identityExists (user) {
   try {
     await fs.access(idLocation)
     return true
-  } catch (err) {
+  }  catch {
     return false
   }
 }
 
 export async function identitiesExist () {
-  const db = await getPrivateDb()
+  let db = new PrivateDb()
   await db.listIdentities()
-  .then(()=>{return true})
-  .catch(()=>{return false})
+              .then(()=>{return (true)})
+              .catch(() => {return false})
 }
 
-export function isUserAuthorized (user) {
-  if (identityExists(user)) {
-    const db = getIdentityDb(user)
-    const localKey = db.local.key
-    db.authorized(localKey, (err, auth) => {
+export async function compareKeys (username) {
+  return new Promise((resolve, reject) => {
+    if (identityExists(username)) {
+      const query = new IdQuery(username)
+      let mk, lk
+      query.getRemoteKey('publicKey')
+              .then(d => mk = d)
+              .catch(mk = false)
+      if (!mk) return reject(new Error('Username was not found on the DHT'))
+      const mkBuf = (Buffer.isBuffer(mk)) ? mk : Buffer.from(mk, 'hex')
+      let db = await getDb(username)
+      if (!db) return reject(new Error('Identity document does not exist locally'))  // we might not need this
+      lk = db.local.key
+      const lkBuf = (Buffer.isBuffer(lk)) ? lk : Buffer.from(lk, 'hex')
+      return resolve(Buffer.compare(mkBuf, lkBuf))
+    }  else {
+      return reject(new Error('Identity document does not exist locally'))
+    }
+  })
+}
+
+export async function isAuthorized (username) {
+  if (compareKeys(username)) return true
+  if (!compareKeys(username)) {
+    let db = getDb(username)
+    let lk = db.local.key
+    db.authorized(lk, (err, auth) => {
       if (err) return false
       else if (auth === true) return true
       else return false
     })
+  }
+}
+
+export const getDb = async (username) => {
+  if (identityExists(username)) {
+    const id = await getIdentityInstance(username, {})
+    let db
+    await id.getDb()
+                .then(d => db = d)
+                .catch(db = false)
+    return db   
+  }  else {
+    return reject(new Error('Identity does not exist locally'))
   }
 }
