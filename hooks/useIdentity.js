@@ -1,7 +1,7 @@
 /**
 File: hooks/useIdentity.js
-Author: Jared Rice Sr. <jared@peepsx.com>
-Description: The `useIdentity` hook exports the IdentityProvider, which allows us to access the pin, currentIdentity and other import details for a specific user, throughout any of our React components. We simply import the useIdentity context into any of the component files we need to utilize any of the state set below. There are also exported functions for setting or clearing specific state related to a user's identity. This also holds state related to identity-related errors that occur throughout the application.
+Author: Jared Rice Sr.
+Description: The useIdentity hook makes certain state available throughout the entire dMessenger application. You can think of this state as an airplane, that can essentially fly to any destination (component, page, popup, etc) that renders something to the DOM. We simply wrap the application via App.js, with this context provider, so that the state can be retrieved within any child component, page, popup, etc., of the provider. This is crucial, so that identity-related state can be retrieved by any page, or component. 
 */
 
 import React, { createContext, useState, useContext } from 'react'
@@ -12,32 +12,38 @@ export const useIdentity = () => useContext(IdentityContext)
 export function IdentityProvider ({children}) {
   const [ pin, setPin ] = useState()
   const [ currentIdentity, setCurrentIdentity ] = useState()
-  const [ lt, setLoginTime ] = useState()
+  const [ loginTime, setLoginTime ] = useState()
   const [ idError, setIdentityError ] = useState()
+  const [ replicatedIdentity, updateReplicatedIdentity ] = useState()
+  const [ deviceCode, setDeviceCode ] = useState()
+  const [ deviceId, setDeviceId ] = useState()
   
   const clearPin = () => setPin()
-
-  const pushPin = pin => {
-    if (pin.length === 6) {
-      setPin(pin)
-    }  else {
-      generateIdError('Pin must be 6 numbers')
-    }
-  }
-
+  const clearDeviceCode = () => setDeviceCode()
+  const pushDeviceId = id => setDeviceId(id)
+  const pushPin = pin => setPin(pin)
   const loginUser = username => setCurrentIdentity(username)
-
   const generateIdError = err => setIdentityError(err)
-
   const clearIdError = () => setIdentityError()
-
   const logoutUser = () => setCurrentIdentity()
+  const pushLoginTime = time => setLoginTime(time)
 
   return (
-    <IdentityContext.Provider 
-      value={{pin, pushPin, clearPin, loginUser, lt, setLoginTime, currentIdentity, logoutUser, idError, generateIdError}}
-    >
-      {children}
-    </IdentityContext.Provider>
+    <IdentityContext.Provider
+      value={{
+        pin,
+        pushPin,
+        clearPin,
+        loginUser,
+        logoutUser,
+        currentIdentity,
+        loginTime,
+        pushLoginTime,
+        replicatedIdentity,
+        updateReplicatedIdentity,
+        idError,
+        generateIdError}}>
+          {children}
+     </IdentityContext.Provider>
   )
 }
