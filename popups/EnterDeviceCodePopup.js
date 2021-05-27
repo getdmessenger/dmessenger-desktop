@@ -10,7 +10,7 @@ import { Modal } from 'react-bootstrap/Modal'
 
 export default function EnterDeviceCodePopup ({ onComplete = f => f, show }) {
   return (
-    <div>
+    <>
       <Modal
         size="xl"
         show={show}
@@ -36,6 +36,6 @@ export default function EnterDeviceCodePopup ({ onComplete = f => f, show }) {
           />
         </Modal.Body>
       </Modal>
-    </div>
+    </>
   )
 }

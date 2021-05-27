@@ -10,7 +10,7 @@ import { Modal } from 'react-bootstrap/Modal'
 
 export default function CreatePinPopup ({ onComplete = f => f, show }) {
   return (
-    <div>
+    <>
       <Modal
         size="xl"
         show={show}
@@ -37,6 +37,6 @@ export default function CreatePinPopup ({ onComplete = f => f, show }) {
           />
         </Modal.Body>
       </Modal>
-    </div>
+    </>
   )
 }
