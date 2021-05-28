@@ -1,14 +1,3 @@
-/**
-File: pages/SyncInit.js
-Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This page within the application is found at `/sync/${username}` and handles the initiation of the sync process, for a specific identity. The goal of the sync process, is to find the master device in the user's identity document, locate the device ID on dWeb's DHT, make a connection with the device and start a SIEP (Simple Identity Exchange Protocol)-based communication with that device, so that the following can occur:
-1. The initiating device can prove to the master device that is has possession of the master device by sending a code that the master device displays.
-2. Receive the seed from the master device, that is used to encrypt all secret keys within the identity document
-3. Be authorized by the master device to write to the identity document.
-
-The initiator below, is asked to create a pin number, which is used to encrypt the received seed, and store in the user's private database, just as it is on the master device. The only difference being, the seed can be encrypted with two different pins, on both devices, or the same pin, it's totally up to the user. Once authorized, the user is told they have been authorized. At any point the user can exit the process by clicking the "Stop Sync" button at the bottom of the screen, which will destroy the protocol-based communication with the master device (destroy the pipe on both ends).
-*/
-
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button } from 'react-bootstrap/Button'
@@ -18,74 +7,80 @@ import dswarm from 'dswarm'
 import { Logo } from './../components/Logo'
 import { CreatePinPopup } from './../popups/CreatePinPopup'
 import { EnterDeviceCodePopup } from './../popups/EnterDeviceCodePopup'
+import { useIdentity } from './../services/Identity'
 import { getIdKey } from './../authentication/loginHelpers'
 import { getDb, isAuthorized } from './../authentication/authHelpers'
-import { useIdentity } from './../hooks/useIdentity'
 import { Identity } from './../services/Identity'
 import { syncBox } from './../jss/pages/SyncInit'
 
 export default function SyncInit () {
-  const [initializing, setInitializing] = useState(true)
-  const [connected, setConnected] = useState(false)
-  const [showCodePad, setShowCodePad] = useState(false)
-  const [showPinPad, setShowPinPad] = useState(false)
-  const [verifying, setVerifying] = useState(false)
-  const [authorizing, setAuthorizing] = useState(false)
-  const [code, setCode] = useState()
-  const [currentChannel, setCurrentChannel] = useState()
-  const [currentMessage, setCurrentMessage] = useState()
+  const [ showCodePad, setShowCodePad ] = useState()
+  const [ showPinPad, setShowPinPad ] = useState()
+  const [ code, setCode ] = useState()
+  const [ restart, setRestart ] = useState()
+  const [ currentChannel, setCurrentChannel ] = useState()
+  const [ currentMessage, setCurrentMessage ] = useState()
+  
+  const { syncStatus, 
+             pushSyncStatus, 
+             pin, 
+             pushPin, 
+             currentIdentity, 
+             idError, 
+             generateIdError } = useIdentity()
 
-  const { pin, pushPin, currentIdentity, generateIdError, idError } = useIdentity()
   const { user } = useParams()
   const navigate = useNavigate()
-  const swarm = dswarm()
-  const db = getDb(user)
+  const db = await getDb(user)
 
   const initiatorProtocolStream = new SIEP(true, {
-    encrypted: true,
+    encrypt: true,
     noise: true,
+    onhandshake () {
+      initiatorProtocolStream.open(1, {
+        user: user
+      })
+    },
     onverify (channel, message) {
       setCurrentChannel(channel)
       setCurrentMessage(message)
-      setShowCodePad(true)
+      setShowCodePad(True)
     },
     onreleaseseed (channel, message) {
       setCurrentChannel(channel)
       setCurrentMessage(message)
       setShowPinPad(true)
+    },
+    onclose () {
+      handleError('Sync was aborted by the other device.')
     }
   })
 
   const getMasterKey = () => {
     db.get('!devices!master', (err, nodes) => {
-      if (err) generateIdError('Could not find the master device in the identity document')
+      if (err) handleError(err)
       if (nodes) {
-        let len = nodes.length
-        let nP = len - 1
-        return resolve(nodes[nP].value)
+        let len = nodes.length - 1
+        return nodes[len].value
       }
     })
   }
 
-  const handleCode = (value) => {
+  const handleCode = value => {
     setCode(value)
     setShowCodePad(false)
-    initiatorProtocolStream.prove(currentChannel, {
-      secret: code
-    })
-    setConnected(false)
-    setVerifying(true)
+    initiatorProtocolStream.prove(currentChannel, { secret: code })
+    pushSyncStatus('verifying')
   }
 
-  const handlePin = (value) => {
+  const handlePin = value => {
     pushPin(value)
     const id = new Identity(user)
     const seed = currentMessage.seed
     const encryptedSeed = id.encryptSeed(seed, pin)
     await id.storeSeed(encryptedSeed)
     setShowPinPad(false)
-    setVerifying(false)
-    setAuthorizing(true)
+    pushSyncStatus('authorizing')
     const key = db.local.key
     initiatorProtocolStream.providekey(currentChannel, {
       identifier: "dwebid",
@@ -94,25 +89,43 @@ export default function SyncInit () {
     handleAuth()
   }
 
-  const handleAuth = () => {
-    while (!isAuthorized()) {
-      setTimeout(() => {
-        console.log('Waiting for master to authorize')
-      }, 3000)
+  const handleError = err => {
+    pushSyncStatus()
+    setShowCodePad(false)
+    setShowPinPad(false)
+    generateIdError(err)
     initiatorProtocolStream.destroy()
-    navigate('/sync/complete')
-    }
+    setStreamDestroyed(true)
   }
 
   const handleAbort = () => {
     initiatorProtocolStream.destroy()
-    navigate('/login')    
+    pushSyncStatus()
+    navigate('/start')
   }
-
-  useEffect( () => {
+  
+  const handleAuth = () => {
+    while (!isAuthorized()) {
+      setTimeout( () => {
+        console.log('waiting on master to authorize')
+      }, 3000)
+    }
+    initiatorProtocolStream.destroy()
+    navigate('/sync/complete')
+  }
+  
+  const handleRestart = () => {
+    initiatorProtocolStream.destroy()
+    pushSyncStatus()
+    setRestart(true)
+  }
+  
+  useEffect(() => {
     if (currentIdentity === user) navigate('/home')
   }, [])
 
+  // Connect with remote device, using device's master device ID and pump in protocol stream.
+  // When restart's state changes, this is destroyed and recreated. So that the connection process starts over.
   useEffect(() => {
     (async () => {
       let key = getMasterKey()
@@ -122,12 +135,13 @@ export default function SyncInit () {
       })
       swarm.on('connection', (socket, info) => {
         pump(socket, initiatorProtocolStream, socket)
-        setConnected(true)
+        pushSyncStatus('connected')
       })
       return swarm.leave(key)
     })()
-  }, [])
+  }, [restart])
 
+  // Swarm/replicate the identity document
   useEffect(() => {
     (async () => {
       let key = await getIdKey()
@@ -136,63 +150,78 @@ export default function SyncInit () {
         announce: true
       })
       swarm.on('connection', (socket, info) => {
-        pump(socket, db.replicate({live: true}), socket)
+        pump(socket, db.replicate({ live: true }), socket)
       })
       return swarm.leave(key)
-    })()
-  }, [])
+     })()
+  }, [restart])
 
   render (
+
+    <div>
+       <Logo />
+       
+            <EnterDeviceCodePopup
+              onComplete={value => handleCode(value)}
+              show={showCodePad}
+            />
+
+            <CreatePinPopup
+              onComplete={value => handlePin(value)}
+              show={showPinPad}
+            />
+
     <div style={syncBox}>
       <Logo />
-      <CreatePinPopup
-        onComplete={(value) => handlePin(value)}
-        show={showPinPad}
-      />
-      <EnterDeviceCodePopup
-        onComplete={(value) => handleCode(value)}
-        show={showCodePad}
-      />
-
-      { (idError)
-         ? 
-         <div><h1>An error occurred!</h1>
-           <p>{idError}</p>
-           </div>
-         : null
-      }
-      { (initializing)
-           ?<div> <h1> Initializing connection... </h1>
-             <p> I am attempting to connect to the master device associated with your identity. I appreciate your patience.</p>
-             </div>
-           : null
-      }
-      { (connected)
-         ?<div> <h1>Connected to master device...</h1>
-            <p>I have connected to the master device and I'm waiting on it to send me instructions.</p>
+      { (!syncStatus)
+         ? <div><h1> Initializing connection... </h1>
+            <p>I am attempting to connect to the master device associated with your identity. I appreciate your patience.</p>
             </div>
-         : null
-      }
-      { (verifying)
-         ? <div> <h1>Waiting on master to verify code...</h1>
-             <p>I am waiting on the master to verify the code you just entered.</p>
-             </div>
-         : null
-      }
-      { (authorizing)
-        ? 
-        <div><h1>Waiting on the master to authorize this device...</h1>
-           <p>I am now waiting on the master to authorize this device</p>
+         :<div> {(syncStatus === 'connected')
+               ? <div> <h1>Connected to master device...</h1>
+                  <p>I have connected to the master device and I'm waiting on it to send me instructions.</p>
+                  </div>
+               : null
+           }
+
+           { (syncStatus === 'verifying')
+               ? <div> <h1>Waiting on master to verify code...</h1>
+                  <p>I am waiting on the master to verify the code you just entered.</p> </div>
+               : null
+           }
+
+           { (syncStatus === 'authorizing')
+               ?<div> <h1>Waiting on the master to authorize this device.</h1>
+                  <p>I am now waiting on the master to authorize this device.</p>
+                  </div>
+               : null
+            
+           }
+           <Button
+              variant="danger"
+              size="lg"
+              onClick={() => handleAbort()}
+              block>
+                Abort Sync
+           </Button>
            </div>
-        : null
-      }
-      <Button
-        variant="danger"
-        size="lg"
-        onClick={() => handleAbort()}
-        block>
-          Abort Sync
-      </Button>
-    </div>
+     }
+
+     { (idError)
+         ?<div> <h1>An error occurred!</h1>
+            <p>{idError}</p>
+            <Button
+               variant="danger"
+               size="lg"
+               onClick={() => handleRestart()}
+               block>
+                 Try Again
+            </Button>
+            </div>
+         : null  
+     }
+   </div>
+
+   </div>
   )
 }
