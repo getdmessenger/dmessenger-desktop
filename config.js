@@ -17,3 +17,6 @@ export const ID_PREFIX = "!identities!"
 export const ROOM_PREFIX = "!network!room!"
 export const LOCAL_PREFIX = "!network!local!"
 export const NOTIFICATIONS_ICON = "./assets/icon/notifications.png"
+export const PRIVATE_CHAT_DIR = path.join(BASE_LOCATION, "privateChats")
+export const PRIVATE_ROOMS_DIR = path.join(BASE_LOCATION, "privateRooms")
+export const PUBLIC_MANIFEST_DIR = path.join(BASE_LOCATION, "publicManifests")

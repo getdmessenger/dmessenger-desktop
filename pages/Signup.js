@@ -124,9 +124,15 @@ export default function Signup () {
        .catch(err => handleError(err))
   }
 
+  // const handleLogin = () => {
+  //   clearAllState()
+  //   loginUser(username)
+  // }
+
   const handleLogin = () => {
-    clearAllState()
     loginUser(username)
+    clearAllState()
+    navigate(`/onboarding`)
   }
 
   const handleError = err => {
@@ -144,9 +150,13 @@ export default function Signup () {
     setDeviceCode()
   }
 
+  // useEffect(() => {
+  //   if (currentIdentity) navigate(`/auth/${currentIdentity}`)
+  // }, [currentIdentity])
+
   useEffect(() => {
     if (currentIdentity) navigate(`/auth/${currentIdentity}`)
-  }, [currentIdentity])
+  }, [])
 
   if (!registered) {
     return (

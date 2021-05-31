@@ -1,72 +1,85 @@
-/**
-File: classes/localDb.js
+/*
+File: services/LocalDb.js
 Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This class is used by dMessenger to interact with the local database (store, retrieve, list and delete various dSwarm network configurations with a particular user. Each user maintains their own localDb, since its basestore is derived from their username (see below).
+Description: This service is used to manage dMessenger's local database. Each identity within the application utilizes its own local database, which is used to store the configurations related to swarms present in the application. A swarm could be the swarm for a private room, a public room, a private chat or even an identity document. More on how chat networking works, can be found in /docs/chat-networking.md.
 */
 
-import MultiDTree from 'multi-dwebtree'
+import dwebtrie from 'dwebtrie'
 import { NanoresourcePromise, Nanoresource } from 'nanoresource-promise/emitter'
-import { NetworkStatus } from '@dhub/rpc/messages'
-import { getStoreInstance } from '../data/getStoreInstance'
-import {
-  ROOM_PREFIX,
-  LOCAL_PREFIX } from './../config'
-import { dTreeOpts } from '../opts/dTreeOpts'
+import { getStoreInstance } from './../data/getStoreInstance'
 
-module.exports = class DMessengerLocalDb extends Nanoresource {
-  construction (username) {
-    super() 
+const SP = "!swarm!"
+
+export default class DMessengerLocalDb extends Nanoresource {
+  constructor (username) {
+    super()
     this.basestore = getStoreInstance()
-    this._db = null
     this.username = username
+    this._db = null
   }
-  async _open () {
-    this._namespacedStore = this.basestore.namespace(this.username)
+
+  async _open() {
+    this._namespacedStore = this.basestore.namespace(username + 'localdb')
     await this._namespacedStore.ready()
-    this._db = new MultiDTree(this._namespacedStore, dTreeOpts)
+    const dbFeed = this._namespacedStore.default()
+    this._db = dwebtrie(null, null, { feed: dbFeed })
     await new Promise((resolve, reject) => {
-      this._db.ready( err => {
+      this._db.ready(err => {
         if (err) return reject(err)
         return resolve(null)
       })
     })
   }
-  async putNetworkConfiguration (type, networkConfiguration) {
-    const dkeyString = networkConfiguration.discoveryKey.toString('hex')
-    await this._db.put(
-      toDbKey(isTypeRoom(type) ? ROOM_PREFIX : LOCAL_PREFIX, dkeyString), 
-      NetworkStatus.encode(networkConfiguration)
-    )
-  }
   
-  async removeNetworkConfiguration (type, discoveryKey) {
-    if (Buffer.isBuffer(discoveryKey)) discoveryKey = discoveryKey.toString('hex')
-    await this._db.del(toDbKey(isTypeRoom(type) ? ROOM_PREFIX : LOCAL_PREFIX, discoveryKey))
+  async addSwarmConfig (type, swarmConfig) {
+    const keyString = swarmConfig.discoveryKey.toString('hex')
+    return new Promise((resolve, reject) => {
+      this._db.put(toDbKey(SP, type, keyString), swarmConfig, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
   }
 
-  async getNetworkConfiguration (type, discoveryKey) {
-    const dkeyString = (typeof discoveryKey === 'string') ? discoveryKey : discoveryKey.toString('hex')
-    const { key, value } = await this._db.get(toDbKey(isTypeRoom(type) ? ROOM_PREFIX : LOCAL_PREFIX, discoveryKey))
-    if (key !== null) return { key, value }
+  async removeSwarmConfig (key, type) {
+    if (Buffer.isBuffer(key)) key = key.toString('hex')
+    return new Promise((resolve, reject) => {
+      this._db.del(toDbKey(SP, type, key), err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
   }
 
-  async listNetworkConfigurations (type) {
-    if (isTypeRoom('room')) {
-      return await this._db.createReadStream({
-        gte: ROOM_PREFIX
+  async getSwarmConfig (key, type) {
+    const keyString = (typeof key === 'string') ? key : key.toString('hex')
+    return new Promise((resolve, reject) => {
+      this._db.get((toDbKey, SP, type, key), (err, node) => {
+        if (err) return reject(err)
+        return resolve(node && node.value)
       })
-    } else {
-      return await this._db.createReadStream({
-        lte: LOCAL_PREFIX
+    })
+  }
+
+  async listSwarmConfigurations () {
+    return new Promise((resolve, reject) => {
+      this._db.list(SP, (err, nodes) => {
+        if (err) return reject(err)
+        return resolve(nodes.map(n => n.value))
       })
-    }
+    })
+  }
+
+  async listTypeSwarmConfigs (type) {
+    return new Promise((resolve, reject) => {
+      this._db.list(toDbKey(SP, type), (err, nodes) => {
+        if (err) return reject(err)
+        return resolve(nodes.map(n => n.value))
+      })
+    })
   }
 }
 
-function toDbKey (prefix, key) {
-  return prefix + '/' + key
-}
-
-function isTypeRoom(type) {
-  if (type === 'room') return true
+function toDbKey (prefix, type, key) {
+  return prefix + type + '!' + key
 }
