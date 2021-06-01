@@ -19,12 +19,11 @@ import { FriendAvatar,
              FollowButton } from './'
 import { useFetchUser } from './../hooks/useFetchUser'
 
-export default function UserCard ({ user, data }) {
+export default function UserCard ({ user }) {
     
     
-  if (!data) {
-    const { loading, error, data, avatarUrl } = useFetchUser(user)
-  }
+ const { loading, error, data, avatarUrl } = useFetchUser(user)
+
 
   if (!error) {
     return (
@@ -33,7 +32,7 @@ export default function UserCard ({ user, data }) {
             ? <Spinner />
             : <Card.Body>
                  <FriendAvatar
-                     url= {(avatarUrl) ? {avatarUrl} : {data.avatarUrl}} />
+                     url= {avatarUrl} />          
                  <Card.Title>
                    <FriendDisplayName
                       name={data.displayName} />
@@ -54,6 +53,7 @@ export default function UserCard ({ user, data }) {
       </Card>
     )
   }  else {
-    return
+    return (<>
+    </>)
   }
 }
