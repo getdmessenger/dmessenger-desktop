@@ -11,7 +11,7 @@ import { Form } from 'react-bootstrap/Form'
 import { Alert } from 'react-bootstrap/Alert'
 import { Button } from 'react-bootstrap/Button'
 import { DWebIdentity } from '@dwebid/core'
-import { IDQuery } from '@dwebid/query'
+import { IdQuery } from '@dwebid/query'
 import { Identity } from './../services/Identity'
 import { Logo } from './../components/Logo'
 import { CreatePinPopup } from './../popups/CreatePinPopup'
@@ -48,7 +48,7 @@ export default function Signup () {
 
   const handleSearch = () => {
     setLoadingStatus(true)
-    const query = new IDQuery(username)
+    const query = new IdQuery(username)
     const available = query.checkAvailability()
     if (available) {
       setUsernameAvailable(true)

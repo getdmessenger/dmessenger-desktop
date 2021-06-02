@@ -18,6 +18,8 @@ import { FriendAvatar,
              FriendLocation,
              FollowButton } from './'
 import { useFetchUser } from './../hooks/useFetchUser'
+import { userCard } from './../jss/components/UserCard'
+
 
 export default function UserCard ({ user }) {
     
@@ -27,7 +29,7 @@ export default function UserCard ({ user }) {
 
   if (!error) {
     return (
-      <Card style={{width:'18rem'}}>
+      <Card style={userCard}>
         { (loading)
             ? <Spinner />
             : <Card.Body>

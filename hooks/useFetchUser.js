@@ -7,7 +7,7 @@ Description: This hook is used to fetch user data from a user's identity documen
 import React, { useState, useEffect } from 'react'
 import fs from 'fs'
 import path from 'path'
-import { IDQuery } from '@dwebid/query'
+import { IdQuery } from '@dwebid/query'
 import { identityExists } from './../authentication/authHelpers'
 import { getIdentityDb } from './../data/getIdentityDb'
 import { getIdentityInstance } from './../identity/getIdentityInstance'
@@ -32,8 +32,8 @@ export default function useFetchUser ({user}) {
 
   useEffect(() => {
     if (!identityExists(user)) {
-      const query = new IDQuery(user)
-      const remoteKey = await query.getRemoteKey(user)
+      const query = new IdQuery(user)
+      const remoteKey = await query.getRemoteKey('publicKey')
       if (remoteKey) {
         const id = await getIdentityInstance(user, {
           key: remoteKey
