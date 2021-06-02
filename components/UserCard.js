@@ -32,7 +32,7 @@ export default function UserCard ({ user }) {
             ? <Spinner />
             : <Card.Body>
                  <FriendAvatar
-                     url= {avatarUrl} />          
+                     url= {(avatarUrl) ? avatarUrl : data.avatarUrl} />          
                  <Card.Title>
                    <FriendDisplayName
                       name={data.displayName} />
