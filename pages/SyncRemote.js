@@ -71,7 +71,7 @@ export default function SyncRemote () {
     is available for the releaseseed handler, by setting hasSeed to true.
   */
 
-  const handlePin = value => {
+  const handlePin = async (value) => {
     if (await confirmPin(syncUser, value)) {
       let pin = value
       let id = new Identity(syncUser)
@@ -119,7 +119,7 @@ export default function SyncRemote () {
     currentIdentity is logged out, and the syncUser is logged-in.
   */
 
-  const handleIdentitySwitch = value => {
+  const handleIdentitySwitch = async (value) => {
     if (await confirmPin(syncUser, value)) {
       pushIdSwitch({
         oldUser: currentIdentity,

@@ -25,7 +25,7 @@ export default function SyncRemoteComplete () {
     resetSyncState
   } = useIdentity()
 
-  const handleIdentitySwitchBack = value => {
+  const handleIdentitySwitchBack = async (value) => {
     if (await confirmPin(currentIdentity, value)) {
       let previousId = idSwitch.oldUser
       logoutUser()

@@ -19,7 +19,7 @@ export default function useMyData ({ me }) {
   const [ error, setError ] = useState()
   const [ loading, setLoading ] = useState()
 
-  useEffect(() => {
+  useEffect(async () => {
     setLoading(true)
     const id = getIdentityInstance(me)
     const userData = await id.getUserData()

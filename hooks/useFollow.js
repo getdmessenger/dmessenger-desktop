@@ -15,7 +15,7 @@ export default function useFollow ({ user }) {
 
   const id = new DWebIdentity(user)
   
-  useEffect(() => {
+  useEffect(async() => {
     setLoading(true)
     const status = await isFollowingUser(user)
     if (status) setFollowingStatus(true)
@@ -23,7 +23,7 @@ export default function useFollow ({ user }) {
     setLoading(false)
   }, [user])
 
-  const followUser = () => {
+  const followUser = async () => {
     if (following) return
     setLoading(true)
     const query = new IdQuery(user)
@@ -38,7 +38,7 @@ export default function useFollow ({ user }) {
     }
   }
 
-  const unfollowUser = () => {
+  const unfollowUser = async () => {
     if (!following) return
     setLoading(true)
     await id.removeRemoteUser(user)

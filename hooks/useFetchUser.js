@@ -25,12 +25,12 @@ export default function useFetchUser ({user}) {
   const [ loading, setLoading ] = useState(true)
   const [ idReplicated, setIdReplicated ] = useState(false)
 
-  useEffect(() => {
+  useEffect(async () => {
     if (idReplicated) setIdReplicated(false)
     else setIdReplicated()
   }, [user])
 
-  useEffect(() => {
+  useEffect(async () => {
     if (!identityExists(user)) {
       const query = new IdQuery(user)
       const remoteKey = await query.getRemoteKey('publicKey')

@@ -95,7 +95,7 @@ export default function Signup () {
      This function is initiated upon registration. A recovery code is generated and stored in the 
      recoveryCode state and then the account is registered on the DHT.
   */
-  const handleRegistration = () => {
+  const handleRegistration = async () => {
     const id = new DWebIdentity(username)
     const idService = new Identity(username)
     const randomBytes = crypto.randomBytes(32)

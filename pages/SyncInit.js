@@ -73,7 +73,7 @@ export default function SyncInit () {
     pushSyncStatus('verifying')
   }
 
-  const handlePin = value => {
+  const handlePin = async (value) => {
     pushPin(value)
     const id = new Identity(user)
     const seed = currentMessage.seed
