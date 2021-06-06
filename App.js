@@ -1,19 +1,17 @@
 import { hot } from 'react-hot-loader'
-import React, { useEffect } from 'react'
-import { MainRouter } from './MainRouter'
+import React from 'react'
 import { BrowserRouter } from 'react-router-dom'
-import { IdentityProvider } from './../hooks/useIdentity'
-import { Controller } from './Controller';
-
-// TODO: need to add Bootstrap style hooks here and in render.
+import { MainRouter } from './MainRouter'
+import { IdentityProvider } from './hooks/useIdentity'
+import { MessengerProvider } from './hooks/useMessenger'
 
 const App = () => {
   return (
     <BrowserRouter>
       <IdentityProvider>
-        <Controller>
+        <MessengerProvider>
           <MainRouter />
-        </Controller>
+        </MessengerProvider>
       </IdentityProvider>
     </BrowserRouter>
   )

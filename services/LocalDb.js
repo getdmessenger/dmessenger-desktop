@@ -78,6 +78,136 @@ export default class DMessengerLocalDb extends Nanoresource {
       })
     })
   }
+
+  async addPrivateRoom (roomName, isCreator) {
+    const obj = { roomName, isCreator } 
+    return new Promise((resolve, reject) => {
+      this._db.put(`/privateRooms/${roomName}`, obj, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async removePrivateRoom (roomName) {
+    return new Promise((resolve, reject) => {
+      this._db.del(`/privateRooms/${roomName}`, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async getPrivateRoom (roomName) {
+    return new Promise((resolve, reject) => {
+      this._db.get(`/privateRooms/${roomName}`, (err, node) => {
+        if (err) return reject(err)
+        return resolve(node && node.value)
+      })
+    })
+  }
+  
+  async listPrivateRooms () {
+    return new Promise((resolve, reject) => {
+      this._db.list('/privateRooms/', (err, nodes) => {
+        if (err) return reject(err)
+        return resolve(nodes.map(n => n.value))
+      })
+    })
+  }
+  
+  async addPrivateChat (user, isCreator) {
+    const obj = { user, isCreator } 
+    return new Promise((resolve, reject) => {
+      this._db.put(`/privateChats/${user}`, obj, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async removePrivateChat (user) {
+    return new Promise((resolve, reject) => {
+      this._db.del(`/privateChats/${user}`, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async getPrivateChat (user) {
+    return new Promise((resolve, reject) => {
+      this._db.get(`/privateChats/${user}`, (err, node) => {
+        if (err) return reject(err)
+        return resolve(node && node.value)
+      })
+    })
+  }
+  
+  async listPrivateChats () {
+    return new Promise((resolve, reject) => {
+      this._db.list('/privateChats/', (err, nodes) => {
+        if (err) return reject(err)
+        return resolve(nodes.map(n => n.value))
+      })
+    })
+  }
+  
+  async savePrivateRoomSeed (roomName, seed) {
+    return new Promise((resolve, reject) => {
+      this._db.put(`/roomSeed/${roomName}`, seed, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async getPrivateRoomSeed (roomName) {
+    return new Promise((resolve, reject) => {
+      this._db.get(`/roomSeed/${roomName}`, (err, node) => {
+        if (err) return reject(err)
+        return resolve(node && node.value)
+      })
+    })
+  }
+  
+  async removePrivateRoomSeed (roomName) {
+    return new Promise((resolve, reject) => {
+      this._db.del(`/roomSeed/${roomName}`, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async savePrivateChatSeed (username, seed) {
+    return new Promise((resolve, reject) => {
+      this._db.put(`/chatSeed/${username}`, seed, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async getPrivateChatSeed (username) {
+    return new Promise((resolve, reject) => {
+      this._db.get(`/chatSeed/${username}`, (err, node) => {
+        if (err) return reject(err)
+        return resolve(node && node.value)
+      })
+    })
+  }
+  
+  async removePrivateChatSeed (roomName) {
+    return new Promise((resolve, reject) => {
+      this._db.del(`/chatSeed/${username}`, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+
+  
 }
 
 function toDbKey (prefix, type, key) {
