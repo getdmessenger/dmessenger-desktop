@@ -229,7 +229,7 @@ export default function Controller () {
                 isReplyTo: msg.isReplyTo,
                 timestamp: msg.timestamp
               }
-              appendPublicRoomMessage(...publicRoomMessages, message)
+              appendPublicRoomMessage(message)
               if (message.username !== currentIdentity) {
                 nq.createNotification({
                   title: `New Message In @${pR.roomName}`,
@@ -259,33 +259,33 @@ export default function Controller () {
         let db = getPrivateRoomDb(roomName)
         db.list('/messages/', { recursive: true }, (err, list) => {
           list.forEach(n => {
-            let msg = n.value
-            let messageId = msg.messageId
-            let exists = privateRoomMessages.some(x => {
-              x.messageId === messageId
-            })
-            if (!exists
-                 && messageLegit(msg.message, msg.signature, msg.username)
-                 && !isUserBlocked(roomName, 'privateRoom', msg.username)
-                 && !isMessageDeleted('privateRoom', roomName, msg.messageId)) {
-              let message = {
-                name: roomName,
-                from: msg.username,
-                messageId: msg.messageId,
-                message: msg.message,
-                signature: msg.signature,
-                isReply: msg.isReply,
-                isReplyTo: msg.isReplyTo,
-                timestamp: msg.timestamp
-              }
-              appendPrivateRoomMessage(...privateRoomMessages, message)
-            }
+           let msg = n.value
+           let messageId = msg.messageId
+           let exists = privateRoomMessages.some(x => {
+             x.messageId === messageId
+           })
+           if (!exists
+               && messageLegit(msg.message, msg.signature, msg.username)
+               && !isUserBlocked(roomName, 'privateRoom', msg.username)
+               && !isMessageDeleted('privateRoom', roomName, msg.messageId)) {
+             let message = {
+               name: roomName,
+               from: msg.username,
+               messageId: messageId,
+               message: msg.message,
+               signature: msg.signature,
+               isReply: msg.isReply,
+               isReplyTo: msg.isReplyTo,
+               timestamp: msg.timestamp
+             }
+             appendPrivateRoomMessage(message)
+           }
           })
         })
         let stream = db.createReadStream('/messages/', {
-          recursive: true
+          recursive: true,
+          live: true
         })
-  
         stream.on('data', n => {
           let data = n.value
           let messageId = data.messageId
@@ -296,28 +296,29 @@ export default function Controller () {
                && messageLegit(data.message, data.signature, data.username)
                && !isUserBlocked(roomName, 'privateRoom', data.username)
                && !isMessageDeleted('privateRoom', roomName, data.messageId)) {
-             let message = {
-               name: roomName,
-               from: data.username,
-               messageId: data.messageId,
-               message: data.message,
-               signature: data.signature,
-               isReply: data.isReply,
-               isReplyTo: data.isReplyTo,
-               timestamp: data.timestamp
-             }
-             if (message.from !== currentIdentity) {
-               nq.createNotification({
-                 title: `New Message In Private Room @${roomName}`,
-                 body: `@${user}: ${message.message}`,
-                 roomName: roomName
-               }, 'new-private-room-message')
-             }
-           }
+            let message = {
+              name: roomName,
+              from: data.username,
+              messageId: messageId,
+              message: data.message,
+              signature: data.signature,
+              isReply: data.isReply,
+              isReplyTo: data.isReplyTo,
+              timestamp: timestamp
+            }
+            appendPrivateRoomMessage(message)
+            if (message.from !== currentIdentity) {
+              nq.createNotification({
+                title: `New Message In Private Room @${roomName}`,
+                body: `@${user}: ${message.message}`,
+                roomName: roomName
+              }, 'new-private-room-message')
+            }
+          }
         })
       }
     })()
-   }, [privateRooms])
+  }, [privateRooms])
 
 
     /**
@@ -325,7 +326,7 @@ export default function Controller () {
      This side effect does the same with private chat messages, by verifying each message and setting it in state.
     */
 
-     useEffect(() => {
+     useEffect( () => {
       (async () => {
         const pCs = privateChats
         for (const pC of pCs) {
@@ -339,22 +340,11 @@ export default function Controller () {
                 x.messageId === messageId
               })
               if (!exists) {
-                let message = {
-                  name: user,
-                  from: msg.username,
-                  messageId: msg.messageId,
-                  message: msg.message,
-                  signature: msg.signature,
-                  isReply: msg.isReply,
-                  isReplyTo: msg.isReplyTo,
-                  timestamp: timestamp
-                }
-                appendPrivateChatMessage(...privateChatMessages, message)
+                appendPrivateChatMessage(message)
               }
             })
           })
-    
-          let stream = db.createReadStream('/messages/', { recursive: true })
+          let stream = db.createReadStream('/messages/', { recursive: true, live: true })
           stream.on('data', n => {
             let data = n.value
             let messageId = data.messageId
@@ -362,7 +352,7 @@ export default function Controller () {
               x.messageId === messageId
             })
             if (!exists) {
-              let message = {
+              const message = {
                 name: user,
                 from: data.username,
                 messageId: messageId,
@@ -373,12 +363,12 @@ export default function Controller () {
                 timestamp: timestamp
               }
               if (messageLegit(data.message, data.signature, data.user)) {
-                appendPrivateChatMessage(...privateChatMessages, message)
+                appendPrivateChatMessage(message)
                 if (message.from !== currentIdentity) {
                   nq.createNotification({
-                    title: `New MEssage From @${user}`,
+                    title: `New Message From @{user}`,
                     body: `@${user}: ${message.message}`,
-                    chatUser: user
+                    chatUser: data.user
                   }, 'new-private-chat-message')
                 }
               }
