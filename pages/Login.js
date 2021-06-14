@@ -21,6 +21,10 @@ export default function Login () {
       navigate(`/login/${user}`)
   }
 
+  const handleChange = event => {
+    setUsername(event.target.value)
+  }
+
   useEffect(() => {
     // check is user is already logged-in
     if (currentIdentity) navigate(`/auth/${currentIdentity}`)
@@ -34,7 +38,7 @@ export default function Login () {
         <Form.Label htmlFor="peepsid">PeepsID</Form.Label>
         <Form.Control
           placeholder="Enter your PeepsID..."
-          onChange={(v) => setUsername(v)}
+          onChange={handleChange}
           size="lg"
         />
         <Form.Text id="peepsIdHelpBlock" muted>
@@ -45,7 +49,7 @@ export default function Login () {
           variant="success"
           type="submit"
           size="lg"
-          onClick={() => handleLogin(user)}
+          onClick={() => handleLogin(username)}
           block>
             Login
         </Button>

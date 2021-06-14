@@ -15,6 +15,8 @@ import { IdQuery } from '@dwebid/query'
 import { Identity } from './../services/Identity'
 import { Logo } from './../components/Logo'
 import { CreatePinPopup } from './../popups/CreatePinPopup'
+import { InputGroup } from 'react-bootstrap'
+
 
 export default function Signup () {
   const [ usernameChosen, setUsernameChosen ] = useState(false)
@@ -150,6 +152,10 @@ export default function Signup () {
     setDeviceCode()
   }
 
+  const handleChange = event => {
+    handleUsernameChange(event.target.value)
+  }
+
   // useEffect(() => {
   //   if (currentIdentity) navigate(`/auth/${currentIdentity}`)
   // }, [currentIdentity])
@@ -187,8 +193,8 @@ export default function Signup () {
                  <InputGroup.Prepend>
                    <InputGroup.Text>@</InputGroup.Text>
                  </InputGroup.Prepend>
-                 <FormControl
-                   onChange={value => handleUsernameChange(value)}
+                 <Form.Control
+                   onChange={handleChange}
                    size="lg"
                    placeholder="yourname"
                  />

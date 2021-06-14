@@ -179,7 +179,7 @@ export default function Onboarding () {
         <p className="text-muted">The display name must be at least 1 character long</p>
         {(error) ? <p>{error}</p> : null}
         <Form>
-          <Form.Control size="lg" onChange={value => setDisplayName(value)} placeholder="Enter a display name..." />
+          <Form.Control size="lg" onChange={event => setDisplayName(event.target.value)} placeholder="Enter a display name..." />
           <Button
             variant="primary"
             onClick={handleDisplayName}
@@ -202,7 +202,7 @@ export default function Onboarding () {
         <Form>
           <Form.Control
              size="lg"
-             onChange={value => setLocation(value)}
+             onChange={ event => setLocation(event.target.value) }
              placeholder="Venus.." />
           <Button
               variant="primary"
@@ -224,7 +224,7 @@ export default function Onboarding () {
         <p className="text-muted">Your bio must be at least 5 words long.</p>
         {(error) ? <p>{error}</p> : null}
         <Form>
-          <Form.Control as="textarea" rows={3} onChange={value => setBio(value)} />
+          <Form.Control as="textarea" rows={3} onChange={ event => setBio(event.target.value) } />
           <Button
             variant="primary"
             onClick={handleBio}
@@ -248,7 +248,7 @@ export default function Onboarding () {
           <Form.Control
             size="lg"
             placeholder="Enter a url.."
-            onChange={value => setUrl(value)} />
+            onChange={event => setUrl(event.target.value)} />
           <Button
             variant="primary"
             onClick={handleUrl}

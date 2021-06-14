@@ -10,6 +10,8 @@ import { IdQuery } from '@dwebid/query'
 import { getLocalDb } from './../data/getLocalDb'
 import { getIdentityInstance } from './../identity/getIdentityInstance'
 import { isUserBlocked } from './manifestHelpers'
+import moment from 'moment-timezone'
+
 
 export async function joinPublicRoom (username, opts) {
   return new Promise((resolve, reject) => {
@@ -130,4 +132,19 @@ export function derivePrivateManifestKey (roomKey) {
 
 export function deriveRoomKey (roomName) {
   return crypto.createHash('sha256').update(roomName).digest()
+}
+
+export function getOldestTimestamp (messages) {
+  let pArray = messages
+  let sort = pArray.sort((a,b) => {
+    a.timestamp < b.timestamp
+  })
+  return sort[0].timestamp
+}
+
+export function convertTimestamp (timestamp) {
+  let now = new Date()
+  let since = now - timestamp
+  let converted = since / 1000
+  return moment().subtract(converted, 'seconds').fromNow()
 }

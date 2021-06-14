@@ -45,27 +45,30 @@ import { isMessageDeleted, isUserBlocked } from './helpers/manifestHelpers'
 
 export default function Controller () {
   const { currentIdentity, pin, pushDeviceId, clearPin, logoutUser, hasSeed, seed, resetSyncState } = useIdentity()
-  const { publicRooms,
-             setPublicRooms,
-             privateRooms,
-             setPrivateRooms,
-             privateChats,
-             setPrivateChats,
-             peerCount,
-             setPeerCount,
-             roomPeerCounts,
-             setRoomPeerCounts,
-             publicRoomMessages,
-             appendPublicRoomMessage,
-             privateRoomMessages,
-             appendPrivateRoomMessage,
-             privateChatMessages,
-             appendPrivateChatMessages,
-             acceptedRooms,
-             pushOnlineStatus,
-             onlineStatus,
-             activeTime,
-             pushActiveTime } = useMessenger()
+  const {
+    setPublicRoomMessages,
+    publicRoomMessages,
+    setPrivateRoomMessages,
+    privateRoomMessages,
+    setPrivateChatMessages,
+    privateChatMessages,
+    deletePublicRoomMessage,
+    deletePrivateRoomMessage,
+    deletePrivateChatMessage,
+    editPublicRoomMessage,
+    editPrivateRoomMessage,
+    editPrivateChatMessage,
+    sortMessages,
+    roomPeerCounts,
+    setRoomPeerCounts,
+    peerCount,
+    setPeerCount,
+    onlineStatus,
+    pushOnlineStatus,
+    activeTime,
+    pushActiveTime,
+    acceptedRooms
+  } = useMessenger()
 
   const localDb = getLocalDb(currentIdentity)
   const nq = new NotificationService()
@@ -210,30 +213,20 @@ export default function Controller () {
       for (const pR of pRs) {
         let db = getDb(pR.roomName)
         let chatView = list(memdb(), (msg, next) => {
-          if (msg.value.type !== 'chat-message') return next()
+          if (msg.value.type !== 'chat-message' || msg.value.deleted) return next()
           next(null, [msg.value.timestamp])
         })
         db.use('chat', chatView)
         db.api.chat.tail(2, msgs => {
           msgs.forEach((msg, i) => {
-            if (messageLegit(msg.message, msg.signature, msg.username)
+            if (messageLegit(msg.message, msg.signature, msg.username) 
                  && !isUserBlocked(pR.roomName, 'publicRoom', msg.username)
-                 && !isMessageDeleted('publicRoom', pR.roomName, msg.messageId)) {
-              let message = {
-                name: pR.roomName,
-                from: msg.username,
-                messageId: msg.messageId,
-                message: msg.message,
-                signature: msg.signature,
-                isReply: msg.isReply,
-                isReplyTo: msg.isReplyTo,
-                timestamp: msg.timestamp
-              }
-              appendPublicRoomMessage(message)
-              if (message.username !== currentIdentity) {
+                  && !isMessageDeleted('publicRoom', pR.roomName, msg.messageId)) {            
+              setPublicRoomMessages(...publicRoomMessages, msg)
+              if (msg.username !== currentIdentity) {
                 nq.createNotification({
                   title: `New Message In @${pR.roomName}`,
-                  body: `${message.username}: ${message.message}`,
+                  body: `${msg.username}: ${msg.message}`,
                   roomName: pR.roomName
                 }, 'new-public-room-message')
               }
@@ -259,32 +252,21 @@ export default function Controller () {
         let db = getPrivateRoomDb(roomName)
         db.list('/messages/', { recursive: true }, (err, list) => {
           list.forEach(n => {
-           let msg = n.value
-           let messageId = msg.messageId
-           let exists = privateRoomMessages.some(x => {
-             x.messageId === messageId
-           })
-           if (!exists
-               && messageLegit(msg.message, msg.signature, msg.username)
-               && !isUserBlocked(roomName, 'privateRoom', msg.username)
-               && !isMessageDeleted('privateRoom', roomName, msg.messageId)) {
-             let message = {
-               name: roomName,
-               from: msg.username,
-               messageId: messageId,
-               message: msg.message,
-               signature: msg.signature,
-               isReply: msg.isReply,
-               isReplyTo: msg.isReplyTo,
-               timestamp: msg.timestamp
-             }
-             appendPrivateRoomMessage(message)
-           }
+            let msg = n.value
+            let messageId = msg.messageId
+            let exists = privateRoomMessages.some(x => {
+              x.messageId === messageId
+            })
+            if (!exists
+                  && messageLegit(msg.message, msg.signature, msg.username)
+                  && !isUserBlocked(roomName, 'privateRoom', msg.username)
+                  && !isMessageDeleted('privateRoom', roomName, msg.messageId)) {
+              setPrivateRoomMessages(...privateRoomMessages, msg)
+            }
           })
         })
         let stream = db.createReadStream('/messages/', {
-          recursive: true,
-          live: true
+          recursive: true
         })
         stream.on('data', n => {
           let data = n.value
@@ -296,24 +278,14 @@ export default function Controller () {
                && messageLegit(data.message, data.signature, data.username)
                && !isUserBlocked(roomName, 'privateRoom', data.username)
                && !isMessageDeleted('privateRoom', roomName, data.messageId)) {
-            let message = {
-              name: roomName,
-              from: data.username,
-              messageId: messageId,
-              message: data.message,
-              signature: data.signature,
-              isReply: data.isReply,
-              isReplyTo: data.isReplyTo,
-              timestamp: timestamp
-            }
-            appendPrivateRoomMessage(message)
-            if (message.from !== currentIdentity) {
-              nq.createNotification({
-                title: `New Message In Private Room @${roomName}`,
-                body: `@${user}: ${message.message}`,
-                roomName: roomName
-              }, 'new-private-room-message')
-            }
+                 setPrivateRoomMessages(...privateRoomMessages, data)
+          }
+          if (data.from !== currentIdentity) {
+            nq.createNotification({
+              title: `New Message In Private Room @${roomName}`,
+              body: `@${data.username}: ${data.message}`,
+              roomName: roomName
+            }, 'new-private-room-message')
           }
         })
       }
@@ -326,7 +298,7 @@ export default function Controller () {
      This side effect does the same with private chat messages, by verifying each message and setting it in state.
     */
 
-     useEffect( () => {
+     useEffect(() => {
       (async () => {
         const pCs = privateChats
         for (const pC of pCs) {
@@ -340,37 +312,25 @@ export default function Controller () {
                 x.messageId === messageId
               })
               if (!exists) {
-                appendPrivateChatMessage(message)
+                setPrivateChatMessages(...privateChatMessages, msg) 
               }
             })
           })
-          let stream = db.createReadStream('/messages/', { recursive: true, live: true })
+          let stream = db.createReadStream('/messages/', { recursive: true })
           stream.on('data', n => {
             let data = n.value
             let messageId = data.messageId
             let exists = privateChatMessages.some(x => {
               x.messageId === messageId
             })
-            if (!exists) {
-              const message = {
-                name: user,
-                from: data.username,
-                messageId: messageId,
-                message: data.message,
-                signature: data.signature,
-                isReply: data.isReply,
-                isReplyTo: data.isReplyTo,
-                timestamp: timestamp
-              }
-              if (messageLegit(data.message, data.signature, data.user)) {
-                appendPrivateChatMessage(message)
-                if (message.from !== currentIdentity) {
-                  nq.createNotification({
-                    title: `New Message From @{user}`,
-                    body: `@${user}: ${message.message}`,
-                    chatUser: data.user
-                  }, 'new-private-chat-message')
-                }
+            if (!exists && messageLegit(data.message, data.signature, data.user)) {
+              setPrivateChatMessages(...privateChatMessages, data)
+              if (data.from !== currentIdentity) {
+                nq.createNotification({
+                  title: `New Message From @${data.username}`,
+                  body: `@${user}: ${data.message}`,
+                  chatUser: data.username
+                }, 'new-private-chat-message')
               }
             }
           })
@@ -605,6 +565,132 @@ export default function Controller () {
             pump(socket, pcapReceiver, socket)
           })
         })()
+      }, [])
+
+      useEffect(() => {
+        (async () => {
+          const pRs = publicRooms
+          for (const pR of pRs) {
+            let db = getDb(pR.roomName)
+            let deletedView = list(memdb(), (msg, next) => {
+              if (msg.value.type !== 'deleted-message') return next()
+              next(null, [msg.value.timestamp])
+            })
+            let editedView = list (memdb(), (msg, next) => {
+              if (msg.value.type !== 'edited-message') return next()
+              next(null, [msg.value.timestamp])
+            })
+            db.use('deletedMsg', deletedView)
+            db.use('editedMsg', editedView)
+            db.api.deletedMsg.tail(2, msgs => {
+              msgs.forEach((msg, i) => {
+                if (messageLegit(msg.messageId, msg.signature, msg.username)) {
+                  let exists = publicRoomMessages.some(x => {
+                    x.messageId === msg.messageId
+                  })
+                  if (exists) {
+                    deletePublicRoomMessage(msg.messageId)
+                  }
+                }
+              })
+            })
+            db.api.editedMsg.tail(2, msgs => {
+              msgs.forEach((msg, i) => {
+                if (messageLegit(msg.messageId, msg.signature, msg.username)) {
+                  let exists = publicRoomMessages.some(x => {
+                    x.messageId === msg.messageId
+                  })
+                  if (exists) {
+                    editPublicRoomMessage(msg)
+                  }
+                }
+              })
+            })
+          }
+        })()
+      }, [])
+      
+      useEffect(() => {
+        (async () => {
+          const pRs = privateRooms
+          for (const pR of pRs) {
+            let roomName = pR.roomName
+            let db = getPrivateRoomDb(roomName)
+      
+            let streamDeleted = db.createReadStream('/deleted/', {
+              recursive: true,
+              live: true
+            })
+      
+            let streamEdited = db.createReadStream('/edited/', {
+              recursive: true,
+              live: true
+            })
+      
+            streamDeleted.on('data', n => {
+              let data = n.value
+              let messageId = data.messageId
+              let exists = privateRoomMessages.some(x => {
+                x.messageId === messageId
+              })
+              if (exists && messageLegit(data.messageId, data.signature, data.username)) {
+                deletePrivateRoomMessage(data.messageId)
+              }
+            })
+      
+            streamEdited.on('data', n => {
+              let data = n.value
+              let messageId = data.messageId
+              let exists = privateRoomMessages.some(x => {
+                x.messageId === messageId
+              })
+              if (exists && messageLegit(data.messageId, data.signature, data.username)) {
+                editPrivateRoomMessage(data)
+              }
+            })
+          }
+        })()
+      }, [])
+      
+      useEffect(() => {
+        (async () => {
+           const pCs = privateChats
+           for (const pC of pCs) {
+             let user = pc.username
+             let db = getPrivateChatDb(user)
+             let streamDeleted = db.createReadStream('/deleted/', {
+               recursive: true,
+               live: true
+             })
+      
+             let streamEdited = db.createReadStream('/edited/', {
+               recursive: true,
+               live: true
+             })
+      
+             streamDeleted.on('data', n => {
+               let data = n.value
+               let messageId = data.messageId
+               let exists = privateChatMessages.some(x => {
+                 x.messageId === messageId
+               })
+               if (exists && messageLegit(data.messageId, data.signature, data.username)) {
+                 deletePrivateChatMessage(data.messageId)
+               }
+             })
+      
+             streamEdited.on('data', n => {
+               let data = n.value
+               let messageId = data.messageId
+               let exists = privateChatMessages.some(x => {
+                 x.messageId === messageId
+               })
+               if (exists && messageLegit(data.messageId, data.signature, data.username)) {
+                 editPrivateChatMessage(data)
+               }
+             })
+           }
+         })()
       }, [])
   
     return (
