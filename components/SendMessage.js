@@ -11,12 +11,13 @@ import { Link } from 'react-router-dom'
 import Picker from 'emoji-picker-react'
 import AES from 'aes-oop'
 import { useMessenger, useIdentity } from './../hooks'
-import { createMessage, editMessage } from './../data'
+import { createMessage } from '../data/createMessage'
+import { editMessage } from '../data/editMessage'
 import { getLocalDb } from './../data/getLocalDb'
 
 export default function SendMessage ({ name, type }) {
   const [ inputValue, setInputValue ] = useReducer(
-    (inputValue, newDetails) => ({...inputValue, ...newDetails }), ''))
+    (inputValue, newDetails) => ({...inputValue, ...newDetails }), '')
   const [ video, setVideo ] = useState()
   const [ images, setImages ] = useState()
   const [ imageData, setImageData ] = useState()
@@ -58,10 +59,10 @@ export default function SendMessage ({ name, type }) {
     await createMessage(type, message, {
       name: name,
       pin: pin,
-      (replyingTo) ? isReply: true, isReplyTo: replyingTo,
-                         : isReply: false, isReplyTo: null,
-      (type === 'privateRoom' || type === 'privateChat') ? encryptedSeed: decryptedSeed: null
-    })
+      replyingTo : ((replyingTo) ? {isReply: true, isReplyTo: replyingTo} : {isReply: false, isReplyTo: null}),
+      type: (type === 'privateRoom' || type === 'privateChat') ? {encryptedSeed : decryptedSeed} : null
+    });
+
     setReplyingTo('')
     setInputValue('')
   }
@@ -75,10 +76,10 @@ export default function SendMessage ({ name, type }) {
     await editMessage(type, message, {
       name: name,
       pin: pin,
-      (editing.isReply) ? isReply: true, isReplyTo: editing.isReplyTo,
-                               : isReply: false, isReplyTo: null,
-      (type === 'privateRoom' || type === 'privateChat') ? encryptSeed: decryptedSeed : null
-    })
+      isReply : (editing.isReply) ? {isReply: true, isReplyTo: editing.isReplyTo} : {isReply: false, isReplyTo: null},
+      type: (type === 'privateRoom' || type === 'privateChat') ? {encryptSeed: decryptedSeed} : null
+    });
+
     setEditing('')
     setInputValue('')
   }
@@ -88,6 +89,7 @@ export default function SendMessage ({ name, type }) {
   const onEmojiClick = (event, emojiObject) => setInputValue(' ' + emojiObject.unified)
 
   return (
+    <>
     <input accept="image/gif" type="file"
       onChange={handlePhotoUpload}
       style={{display:'none'}}
@@ -99,18 +101,16 @@ export default function SendMessage ({ name, type }) {
       id="video-upload" />
 
     {(images || video)
-      ?  <Alert variant="light" onClose={handleRemoveUploads} dismissable>
+      ?  (<Alert variant="light" onClose={handleRemoveUploads} dismissable>
            <Alert.Heading>
-             {(images && !video)
-                ? You have attached {images.length - 1} images!
-                : null
+             {(images && !video) ? ("You have attached" + images.length - 1 +"images!" ): null
              }
              {(!images && video)
-                ? You have attached a video!
+                ? ("You have attached a video!")
                 : null
              }
              {(images && video)
-                ? You have attached {images.length - 1} images and a video!
+                ? ("You have attached {images.length - 1} images and a video!")
                 : null
              }
            </Alert.Heading>
@@ -119,18 +119,18 @@ export default function SendMessage ({ name, type }) {
                <Image className="mr-2" src={x} thumbnail />
              })}
            </span>
-           <hr>
-           <div className="d-flex" justify-content-end">
+           <hr/>
+           <div className="d-flex" style="justify-content-end">
              <Button onClick={handleRemoveUploads} variant="outline-danger">
                Remove attachments
              </Button>
            </div>
-         </Alert>
+         </Alert>)
       : null
     }
 
     {(!editing)
-       ? <Form onSubmit={handleSubmit}>
+       ? (<Form onSubmit={handleSubmit}>
            {(!replyingTo)
              ? <Form.Control
                  type="text"
@@ -154,9 +154,11 @@ export default function SendMessage ({ name, type }) {
                  />
                </InputGroup>
            }
-         </Form>
+         </Form>)
 
-       : <EditingAlert />
+       : (
+       <>
+       <EditingAlert />
           <Form onSubmit={handleEditSubmit}>
             <InputGroup size="lg">
               <InputGroup.Prepend>
@@ -172,6 +174,8 @@ export default function SendMessage ({ name, type }) {
               />
             </InputGroup>
           </Form>
+          </>
+       )
     }
 
     <Picker onEmojiClick={onEmojiClick} />
@@ -187,5 +191,6 @@ export default function SendMessage ({ name, type }) {
         <Button variant="secondary" size="sm"><FAVideo /></Button>
       </Form.File.Label>
     </Form>
+    </>
   )  
 }

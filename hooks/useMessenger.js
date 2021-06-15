@@ -30,6 +30,8 @@ const [ showModal, setShowModal ] = useState()
 const [ imageInModal, setImageInModal ] = useState()
 const [ replyingTo, setReplyingTo ] = useState()
 const [ editing, setEditing ] = useState()
+const [ settings, setSettings ] = useState()
+
 
 const pushSelectedChat = chat => setSelectedChat(chat)
 const pushActiveTime = time => setActiveTime(time)
@@ -133,6 +135,8 @@ activeTime,
 pushActiveTime,
 editing,
 setEditing,
+settings,
+setSettings,
 deletePrivateRoomMessage,
 deletePrivateChatMessage,
 deletePublicRoomMessage,

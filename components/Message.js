@@ -127,6 +127,10 @@ export default function Message({
           <MessageDropdown
             name={name}
             type={type}
+            message={message}
+            isReply={isReply}
+            isReplyTo={isReplyTo}
+            timestamp={timestamp}
             from={from}
             id={key}
           />

@@ -34,12 +34,8 @@ export default async function createMessage(type, message, opts) {
       messageId: messageId,
       message: message,
       signature: signature,
-      (isReply)
-        ? {isReply: true,
-          isReplyTo: isReplyTo}
-        : {isReply: false,
-          isReplyTo: null},
-      timestamp: timestamp
+      isReply : isReply ? {isReply: true, isReplyTo: isReplyTo} : {isReply: false, isReplyTo: null},
+      timestamp: timestamp,
     }
 
     if (type === 'publicRoom') {
@@ -101,8 +97,7 @@ export default async function dispatchMessage(type, message, opts) {
       messageId: messageId,
       message: message,
       signature: signature,
-      (isReply)  ? isReply: true, isReplyTo: isReplyTo,
-                     : isReply: false, isReplyTo: null,
+      isReply : (isReply)  ? {isReply: true, isReplyTo: isReplyTo }: {isReply: false, isReplyTo: null},
       timestamp: timestamp 
     }
 

@@ -27,7 +27,7 @@ export default async function editMessage(type, messageId, message, opts) {
         messageId: messageId,
         message: message,
         signature: signature,
-        (isReply)
+        isReply: (isReply)
         ? {isReply: true,
           isReplyTo: isReplyTo}
         : {isReply: false,
