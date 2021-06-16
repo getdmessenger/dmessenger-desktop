@@ -132,9 +132,9 @@ export default function MessageDropdown ({ name, type, message, isReply, isReply
           : null
        }
 
-       <Dropdown.Item href='/friends/'from>View Profile</Dropdown.Item>
+       <Dropdown.Item href={`/friends/${from}`}>View Profile</Dropdown.Item>
        {(currentIdentity !== from)
-         ? <Dropdown.Item href='/new/privateChat/'from>Send Message</Dropdown.Item>
+         ? <Dropdown.Item href={`/new/privateChat/${from}`}>Send Message</Dropdown.Item>
          : null
        }
        <Dropdown.Divider />

@@ -120,7 +120,7 @@ export default function Message({
       <Card>
         <Card.Header as="h5">
           <FriendAvatar from={from} size="sm" />
-          <Link to={'/friend/'+{from}}>
+          <Link to={`/friend/${from}`}>
             <strong className="mr-auto">@{from}</strong>
           </Link>
           <small>{timeEst}</small>

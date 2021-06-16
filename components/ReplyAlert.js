@@ -17,7 +17,7 @@ export default function ReplyAlert () {
     <a href={`${replyingTo.messageId}`}>
       <Alert variant="light">
         <Alert.Heading as="h6">
-          In reply to <Link to={'/friend/'+replyingTo.user}>@{replyingTo.user}</Link>
+          In reply to <Link to={`/friend/${replyingTo.user}`}>@{replyingTo.user}</Link>
         </Alert.Heading>
         <Alert.Link href={`${replyingTo.messageId}`}>
           <p style={replyBubble}>{replyingTo.message}</p>

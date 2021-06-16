@@ -37,7 +37,7 @@ export default function ChatSidebarItem ({ type, name, from, message, timestamp 
   }, [message])
 
   return (
-    <Link to={"/"+{type}+"/"+{name}}>
+    <Link to={`/+${type}+/+${name}`}>
       <Card style={sidebarItem} className="mb-0 {(isActive) ? bg-light : bg-dark}">
         <Card.Body>
           <Card.Title>

@@ -8,7 +8,6 @@ import React, { useState, useEffect } from 'react'
 import { IdQuery } from '@dwebid/query'
 import fs from 'fs'
 import path from 'path'
-// Is this in /helpers or /authentication?
 import { identityExists } from './../authentication/authHelpers'
 import { getIdentityDb } from './../data/getIdentityDb'
 import { getIdentityInstance } from './../identity/getIdentityInstance'
