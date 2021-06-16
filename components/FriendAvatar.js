@@ -1,23 +1,32 @@
 /**
 File: components/FriendAvatar.js
 Author: Jared Rice Sr. <jared@peepsx.com>
-Description: This component displays the avatar of a remote user. It either retrieves the avatarUrl using the useFetchUser hook (hooks/useFetchUser.js) or the url can be passed to the component directly.
+Description: This component renders a user's avatar, using the useFetchUser hook (hooks/useFetchUser).
 */
 
 import React from 'react'
-import { Image } from 'react-bootstrap/Image'
-import { Spinner } from 'react-bootstrap/Spinner'
+import { Image, Spinner } from 'react-bootstrap'
 import { useFetchUser } from './../hooks/useFetchUser'
 
-export default function FriendAvatar ({ noSpinner, user, url, style }) {
-  if (!url) {
-    const { loading, error, avatarUrl: url } = useFetchUser(user)
+export default function FriendAvatar ({ noSpinner, user, size="sm" }) {
+  const { loading, error, avatarUrl: url } = useFetchUser(user)
 
-    if (loading && noSpinner) return <Spinner/>
-    else if (loading) <Image src="./../assets/avatars/loadingAvatar.png" style={style} roundedCircle />
-    else if (error) <Image src="./../assets/avatars/noUser.png" style={style} roundedCircle />
-    else return <Image src={url} style={style} roundedCircle />
-  }  else {
-    return <Image src={url} style={style} roundedCircle />
+  if (loading && !noSpinner) {
+    return <Spinner />
+  }
+  else if (loading && noSpinner) {
+    return <Image src="./../assets/avatars/loadingAvatar.png" roundedCircle />
+  }
+  else if (error) {
+    return <Image src="./../asserts/avatars/noUser.png" roundedCircle />
+  }
+  else {
+    return ( 
+      <Image 
+        src={url}
+        style = {(size === 'sm') ? {width: '25px' , height: 'auto'} : {width: '250px' , height: 'auto'}
+        }
+        roundedCircle />
+    )
   }
 }
