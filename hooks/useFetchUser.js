@@ -12,6 +12,8 @@ import { identityExists } from './../authentication/authHelpers'
 import { getIdentityDb } from './../data/getIdentityDb'
 import { getIdentityInstance } from './../identity/getIdentityInstance'
 import { FRIEND_AVATAR_DIR } from './../config'
+import { getLocalDb } from './../data'
+import { useIdentity } from './'
 
 export default function useFetchUser ({ user }) {
   const [ data, setData ] = useState()
@@ -24,6 +26,8 @@ export default function useFetchUser ({ user }) {
   const [ error, setError ] = useState()
   const [ loading, setLoading ] = useState()
   const [ idReplicated, setIdReplicated ] = useState(false)
+  const { currentIdentity } = useIdentity()
+  let db = await getLocalDb(currentIdentity)
 
   useEffect(() => {
     (async () => {

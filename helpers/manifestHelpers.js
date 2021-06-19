@@ -142,3 +142,23 @@ export async function getRoomData (roomName, roomType) {
     })
   })
 }
+
+export async function addModerator(name, type, opts) {
+  return new Promise((resolve, reject) => {
+    if (!(await isModerator(moderator, roomType, roomName)))  return reject()
+    let db = await getManifestDb(roomType, roomName)
+    const { id, moderator } = opts
+    db.get('/moderators', (err, nodes) => {
+      if (err) return reject()
+      let len = nodes.length
+      if (nodes && nodes[len].value !== null) {
+        let currentModerators = nodes[len].value
+        currentModerators.push(moderator)
+        db.put('/moderators', currentModerators, (err) => {
+          if (err) return reject()
+          return resolve()
+        })
+      }
+    })
+  })
+}
