@@ -40,7 +40,7 @@ export default function ChatHeader ({ name, type }) {
              avatar: roomAvatar, 
              avatarUrl: roomAvatarUrl, 
              roomDescription, 
-             roomPolicy } = useFetchRoom(name)
+             roomPolicy } = useFetchRoom(name, type)
 
   const { data: userData, 
              error: userError, 

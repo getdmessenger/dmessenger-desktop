@@ -19,7 +19,7 @@ export default function AddModerator (id, show, name, type, moderator, onClose=f
   const [ sent, setSent ] = useState(false)
   
   const { currentIdentity, pin } = useIdentity()
-  const id = new Identity(currentIdentity)
+  const identity = new Identity(currentIdentity)
   const streamService = new ReplicationDb(currentIdentity)
   
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function AddModerator (id, show, name, type, moderator, onClose=f
 
   const handleModSelect = async user => {
     setLoading(true)
-    const secret = id.decryptSecretKey('default', pin)
+    const secret = identity.decryptSecretKey('default', pin)
     const signature = sign(name, secret)
     await streamService.addStream("smap", {
       roomName: name,

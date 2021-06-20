@@ -207,7 +207,25 @@ export default class DMessengerLocalDb extends Nanoresource {
     })
   }
 
+  async getSettings () {
+    return new Promise((resolve, reject) => {
+      this._db.get('/settings', (err, node) => {
+        if (err) return reject(err)
+        return resolve(node && node.value)
+      })
+    })
+  }
   
+  async putSettings (settings) {
+    return new Promise((resolve, reject) => {
+      this._db.put('/settings', settings, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+
+   
 }
 
 function toDbKey (prefix, type, key) {
