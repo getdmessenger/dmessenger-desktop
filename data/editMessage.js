@@ -13,6 +13,9 @@ import { Identity } from './../services/Identity'
 export default async function editMessage(type, messageId, message, opts) {
   return new Promise((resolve, reject) => {
     let db;
+    if (type === 'publicRoom') db = await getDb(name)
+    if (type === 'privateRoom') db = await getPrivateRoomDb(name)
+    if (type === 'privateChat') db = await getPrivateChatDb(name)
     const username = opts.username
     const id = new Identity(username)
     const { name, pin, oldTimestamp, encryptSeed , isReply, isReplyTo} = opts

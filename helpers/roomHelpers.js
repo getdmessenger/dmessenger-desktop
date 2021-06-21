@@ -276,7 +276,7 @@ export async function listPublicDepartures (name) {
 export async function announcePublicDeparture (name, user, signature) {
   return new Promise((resolve, reject) => {
     let db = await getDb(name)
-    db.writer('local', (err, writer) => {
+    db.writer('default', (err, writer) => {
       if (err) return reject()
       let entry = {
         type: "departing",

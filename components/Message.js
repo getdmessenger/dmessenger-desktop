@@ -111,8 +111,11 @@ export default function Message({
 
     {(isReply)
        ? <ReplyBubble
-           isReplyTo={isReplyTo}
-         />
+       from={from}
+       message={message}
+       key={key}
+       timestamp={timestamp}
+     />
        :  null
     }
     
