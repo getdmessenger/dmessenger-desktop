@@ -10,7 +10,7 @@ import { Image } from 'react-bootstrap'
 import { FRIEND_AVATAR_DIR } from './../config'
 
 export default function MyAvatar ({ me, size="sm" }) {
-  const avatar = path.join(FRIEND_AVATAR_DIR, me, 'avatar.gif')
+  const avatar = path.join(FRIEND_AVATAR_DIR + me + '.gif')
 
   return (
     <Image

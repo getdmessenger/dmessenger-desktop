@@ -38,12 +38,14 @@ export default function MessageDropdown ({ name, type, message, isReply, isReply
     await deleteMessage(type, id, {
       name: name,
       username: from,
+      isReplyTo: (isReply) ? isReplyTo : null,
       oldTimestamp: timestamp,
       encryptSeed: null,
       pin: pin
     })
     setShowDeleteModal(false)
   }
+  
 
   const handleBlock = async () => {
     await blockUser(from, type, name, currentIdentity)

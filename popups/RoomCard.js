@@ -26,7 +26,7 @@ export default function RoomCard ({ roomName }) {
 
   useEffect(() => {
     (async () => {
-      let member = await isRoomMember(roomName, 'publicRoom')
+      let member = await isRoomMember(user, roomName, 'publicRoom')
       setJoined(member)
     })()
   })

@@ -151,7 +151,7 @@ export function getOldestTimestamp (messages) {
   return sort[0].timestamp
 }
 
-export function convertTimestamp (timestamp) {
+export function convertToEstimate (timestamp) {
   let now = new Date()
   let since = now - timestamp
   let converted = since / 1000

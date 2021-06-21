@@ -19,7 +19,7 @@ export default async function deleteMessage(type, messageId, opts) {
     const secret = id.decryptSecretKey('default', pin)
     const signature = sign(messageId, secret)
     const timestamp = oldTimestamp
-    const message = { type: "deleted-message", messageId, signature, timestamp }
+    const message = { type="deleted-message", messageId, signature, timestamp, replyTo: opts.isReplyTo }
     if (type === 'publicRoom') db = await getDb(name)
     if (type === 'privateRoom') db = await getPrivateRoomDb(name)
     if (type === 'privateChat') db = await getPrivateChatDb(name)

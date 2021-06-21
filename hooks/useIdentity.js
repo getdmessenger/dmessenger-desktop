@@ -92,7 +92,9 @@ export function IdentityProvider ({ children }) {
                   pushIdSwitch,
                   clearSyncStatus,
                   resetSyncState,
-                  resetSyncStateFull}}>
+                  resetSyncStateFull,
+                  setDeviceId,
+                  setDeviceCode}}>
        {children}
     </IdentityContext.Provider>
   )

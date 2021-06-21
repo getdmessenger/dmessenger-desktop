@@ -18,7 +18,7 @@ export default function FriendAvatar ({ noSpinner, user, size="sm" }) {
     return <Image src="./../assets/avatars/loadingAvatar.png" roundedCircle />
   }
   else if (error) {
-    return <Image src="./../asserts/avatars/noUser.png" roundedCircle />
+    return <Image src="./../assets/avatars/noUser.png" roundedCircle />
   }
   else {
     return ( 
