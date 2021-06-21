@@ -148,7 +148,7 @@ export default function ChatWindow ({ name, type }) {
           from={m.from}
           key={m.messageId}
           message={m.message}
-          {(isReply) ? {isReply: true, isReplyTo: m.isReplyTo} :  null }
+          isReply = {(isReply) ? {isReply: true, isReplyTo: m.isReplyTo} :  null }
           timestamp={m.timestamp}
          />
       })}
@@ -160,16 +160,17 @@ export default function ChatWindow ({ name, type }) {
            from={msg.from}
            key={msg.messageId}
            message={msg.message}
-           {(isReply) ? {isReply={true} isReplyTo={msg.isReplyTo} } : null}
+           isReply ={(isReply) ? {isReply=true , isReplyTo=msg.isReplyTo } : null}
            timestamp={m.timestamp}
          />
        })}
+       </>
     )
   }  else {
     return (
       <>
       { (type === 'privateRoom')
-           ? {privateRoomMessages.filter(m => m.name === name)
+           ? (privateRoomMessages.filter(m => m.name === name)
                .map(msg => {
                 <Message
                   name={name}
@@ -177,12 +178,12 @@ export default function ChatWindow ({ name, type }) {
                   from={msg.from}
                   key={msg.messageId}
                   message={msg.message}
-                  {(isReply) ? isReply={true} isReplyTo={msg.isReplyTo} : null}
+                  isReply = {(isReply) ? { isReply=true , isReplyTo=msg.isReplyTo }: null}
                   timestamp={msg.timestamp}
                 />
-               })}
-           :{(type === 'privateChat')
-               ? {privateChatMessages.filter(m => m.name === name)
+               }))
+           : (type === 'privateChat')
+               ? (privateChatMessages.filter(m => m.name === name)
                    .map(msg => {
                      <Message
                        name={name}
@@ -190,12 +191,12 @@ export default function ChatWindow ({ name, type }) {
                        from={msg.from}
                        key={msg.messageId}
                        message={msg.message}
-                       {(isReply) ? isReply={true} isReplyTo={msg.isReplyTo} : null }
+                       isReply = {(isReply) ? {isReply=true , isReplyTo=msg.isReplyTo }: null }
                        timestamp={msg.timestamp}
-                   })}
-               : null
+                       />
+                   }))
+             : null
             }
-       }
        </>
     )
   }
