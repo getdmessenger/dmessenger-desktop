@@ -13,35 +13,39 @@ The controller handles:
 - Responds to new private chat and private room invitations (PCAP)
 */
 
+import React, { useState, useEffect } from 'react'
 import crypto from 'crypto'
 import memdb from 'memdb'
 import pump from 'pump'
 import list from '@neutrondb/list-view'
 import SIEP from '@dwebid/simple-identity-exchange-protocol'
-import PCAP from '@dmessenger/private-chat-authentication-protocol'
+import PCAP from '@dmessenger/pcap'
+import SMAP from '@dmessenger/smap'
 import { sign, verify } from '@ddatabase/crypto'
 import { IdQuery } from '@dwebid/query'
 import AES from 'aes-oop'
-import { Badge,
-             Button,
-             Navbar } from 'react-bootstrap'
+import { Badge, Button, NavBar } from 'react-bootstrap'
 import { getLocalDb,
+             getPrivateDb,
+             getDb,
+             getManifestDb,
              getPrivateRoomDb,
              getIdentityDb,
              getPrivateChatDb } from './data'
-import { NotificationService, Identity } from './services'
+import { NotificationService,
+             ReplicationDb,
+             Identity } from './services'
 import { listPublicRooms,
              messageLegit,
              joinPrivateRoom,
              leavePrivateRoom,
              removePrivateRoomDb } from './helpers/roomHelpers'
-import { checkAuth, authorizeKey } from './helpers/privateHelpers'
+import { checkAuth, authorizeKey } from './helpers/siepHelpers'
 import { joinPrivateChat, leavePrivateChat } from './helpers/chatHelpers'
-import { publishStatus } from './helpers/coreHelpers'
+import { isMessageDeleted, isUserBlocked } from './helpers/manifestHelpers'
+import { publicStatus } from './helpers/chatHelpers'
 import { useIdentity, useMessenger } from './hooks'
 import dswarmOpts from './opts/dSwarmOpts'
-import { getManifestDb } from './data/getManifestDb'
-import { isMessageDeleted, isUserBlocked } from './helpers/manifestHelpers'
 
 export default function Controller () {
   const { currentIdentity, pin, pushDeviceId, clearPin, logoutUser, hasSeed, seed, resetSyncState } = useIdentity()
@@ -692,6 +696,132 @@ export default function Controller () {
            }
          })()
       }, [])
+
+            /** COMMENT:
+        This listens for the initiation of new chat creations or the invitation of users to private rooms, by simply listening to the streamService for new entries. Once a new stream is created, a new PCAP protocol stream is initiated with that user, over the proper discovery key.
+      */
+      useEffect(() => {
+        (async () => {
+          // live streams new PCAP initiator protocol requests
+          const pcapStreams = streamService.listStreamsByType('pcap')
+          for (const stream of pcapStreams) {
+            const pcapInitiator = new PCAP(true, {
+              encrypted: true,
+              noise: true,
+              onhandshake () {
+                pcapInitiator.invite(1 , {
+                  type: stream.type,
+                  name: stream.name,
+                  publicKey: stream.publicKey,
+                  creator: stream.creator,
+                  signature: stream.signature
+                })
+              },
+              onaccept (channel, message) {
+                let db
+                if (stream.type === 'privateRoom') db = getPrivateRoomDb(stream.name)
+                if (stream.type === 'privateChat') db = getPrivateChatDb(stream.name)
+                else pcapInitiator.destroy()
+                let query = new IdQuery(stream.intendedReceiver)
+                let userKey = await query.getRemoteKey('publicKey')
+                let verified = verify(stream.name, message.signature, userKey)
+                if (verified) {
+                  db.authorize(message.localPublicKey, () => {
+                    //generate a new seed for encrypting the conversation
+                    let seed = await id.passwordToSeed(id.genSalt(len = 32))
+                    let encryptedSeed = AES.encrypt(seed, pin)
+                    await localDb.acceptChat(stream.type, stream.name)
+                    await privateDb.addEncryptionSeed(seed, stream.name)
+                    pcapInitiator.authorized(1, {
+                      type: stream.type,
+                      seed: stream.seed,
+                      name: stream.name
+                    })
+                  })
+                }
+              },
+              onclose (channel, message) {
+                pcapInitiator.destroy()
+              }
+            })
+            let swarm = dswarm(dswarmOpts)
+            let userDk = crypto.createHash('sha256').update(stream.intendedReceiver).digest()
+
+            swarm.join(userDk, {
+              lookup: true,
+              announce: true,
+            })
+
+            swarm.on('connection', (socket, info) => {
+              pump(socket, pcapInitiator, socket)
+            })
+          }
+        })()
+    }, [])
+
+    /** COMMENT:
+This does the same as the above PCAP stream initiators but instead works with the SMAP protocol. When the logged-in user requests to add a moderator, the request is packaged into an SMAP request and sent to the intended receiver. Below this, is the smapReceiver, which handles incoming SMAP requests.
+*/
+useEffect(() => {
+  (async () => {
+    // live streams new SMAP initiator protocol requests
+    const smapStreams = streamService.listStreamsByType('smap')
+    for (const stream of smapStreams) {
+      const smapInitiator = new SMAP(true, {
+        encrypted: true,
+        noise: true,
+        onhandshake () {
+          smapInitiator.invite(1, {
+            type: stream.type,
+            name: stream.roomName,
+            sender: stream.sender,
+            signature: stream.signature,
+            intendedReceiver: stream.intendedReceiver
+          })
+        },
+        onaccept (channel, message) {
+          let db
+          if (stream.type === 'privateRoom') db = getManifestDb('privateManifest', stream.roomName)
+          if (stream.type === 'publicRoom') db = getManifestDb('publicManifest', stream.roomName)
+          else smapInitiator.destroy()
+          let query = new IdQuery(stream.intendedReceiver)
+          let userKey = await query.getRemoteKey('publicKey')
+          let verified = verify(stream.roomName, message.signature, userKey)
+          if (verified) {
+            db.authorize(message.localPublicKey, () => {
+              let seed = await id.passwordToSeed(id.genSalt(len = 32))
+              let encryptedSeed = AES.encrypt(seed, pin)
+              await localDb.acceptChat(stream.type, stream.roomName)
+              await privateDb.addEncryptionSeed(seed, stream.roomName)
+              smapInitiator.authorized(1, {
+                roomName: stream.roomName
+              })
+            })
+          }  else {
+            smapInitiator.destroy()
+          } 
+        },
+        onclose (channel, message) {
+          smapInitiator.destroy()
+        }
+      })
+
+      let swarm = dswarm()
+      let userKey = `${stream.intendedReceiver}` + 'smap'
+
+      swarm.join(userKey, {
+        lookup: true,
+        announce: true
+      })
+
+      swarm.on('connection', (socket, info) => {
+        pump(socket, smapInitiator, socket)
+      })
+    }
+  })()
+}, [])
+
+      
   
     return (
         <>
