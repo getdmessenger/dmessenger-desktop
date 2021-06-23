@@ -83,6 +83,13 @@ export default function Controller () {
   const localDb = getLocalDb(currentIdentity)
   const nq = new NotificationService()
 
+  let privateDb = await getPrivateDb()
+  let streamService = new ReplicationDb(currentIdentity)
+
+  const handleRemoveStream = async stream => {
+    await streamService.removeStream(stream.type, stream.name, stream.intendedReceiver)
+  }
+
 
   // When the auto-logout time has passed, clear the pin from state and logout the user
 useEffect( () => {
@@ -273,9 +280,7 @@ useEffect(() => {
            "identities"
          ]
          for (const type of types) {
-           const stream = localDb.createReadStream(`/network/${type}`, {
-             recursive: true
-           })
+          const stream = localDb.listStreamSwarms(type)
            stream.on('data', n => {
              let data = n.value
              let db
@@ -462,16 +467,16 @@ useEffect(() => {
       if it has been over 15 minutes.
       */
   
-      useEffect( () => {
-        (async () => {
-          const now = new Date()
-          const diff = now - activeTime
-          if (diff > 900000) {
-            clearPin()
-            logoutUser()
-          }
-        })()
-      })
+      // useEffect( () => {
+      //   (async () => {
+      //     const now = new Date()
+      //     const diff = now - activeTime
+      //     if (diff > 900000) {
+      //       clearPin()
+      //       logoutUser()
+      //     }
+      //   })()
+      // })
   
       /** 
       COMMENT:
@@ -479,9 +484,9 @@ useEffect(() => {
       each page, this resets the most recent activity time, each time a user goes to a new page.
       */
   
-      useEffect( () => {
-        pushActiveTime(new Date())
-      }, [])
+      // useEffect( () => {
+      //   pushActiveTime(new Date())
+      // }, [])
   
       /**
       COMMENT:
@@ -932,6 +937,265 @@ useEffect(() => {
         pump(socket, smapInitiator, socket)
       })
     }
+  })()
+}, [])
+
+/**
+COMMENT:
+When a moderator is added (via popups/AddModerator.js), a stream config is added to the replication database (services/ReplicationDb.js), this useEffect listens for new stream configs and initiates a protocol stream for that particular configuration over a user's SMAP discovery key.
+*/
+
+useEffect(() => {
+  (async () => {
+    let live = streamService.listStreamsByType('smap')
+    live.on('data', n => {
+      let stream = n.value
+
+      const smapInitiator = new SMAP(true, {
+        encrypted: true,
+        noise: true,
+
+        onhandshake () {
+          smapInitiator.invite(1, {
+            type: stream.type,
+            name: stream.roomName,
+            sender: stream.sender,
+            signature: stream.signature,
+            intendedReceiver: stream.intendedReceiver
+          })
+        },
+
+        onaccept (channel, message) {
+          let db
+          if (stream.type === 'privateRoom') db = getManifestDb('privateRoom', stream.roomName)
+          if (stream.type === 'publicRoom') db = getManifestDb('publicRoom', stream.roomName)
+          else smapInitiator.destroy()
+          let query = new IdQuery(stream.intendedReceiver)
+          let userKey = await query.getRemoteKey('publicKey')
+          let verified = verify(stream.roomName, message.signature, userKey)
+          if (verified) {
+            db.authorize(message.localPublicKey, () => {
+              let seed = await id.passwordToSeed(id.genSalt(len=32))
+              let encryptedSeed = AES.encrypt(seed, pin)
+              await localDb.acceptChat(stream.type, stream.name)
+              await privateDb.addEncryptionSeed(seed, stream.name)
+              smapInitiator.authorized(1, {
+                roomName: stream.roomName
+              })
+            })
+
+            // since we have achieved a successful authorization, we can remove this stream 
+            await handleRemoveStream(stream)
+
+          }  else {
+            // We might be dealing with a peer who is not the target peer and masquerading as the target.
+            // Since the peer in this stream isn't valid, we destroy the connection
+            smapInitiator.destroy()
+          }
+        },
+
+        onrefuse (channel, message) {
+          let query = new IdQuery(stream.intendedReceiver)
+          let userKey = query.getRemoteKey('publicKey')
+          let verified = verify(stream.name, message.signature, userKey)
+          if (verified) {
+            smapInitiator.destroy()
+            await handleRemoveStream(stream)
+          }          
+          // if not verified, simply do nothing.
+        },
+ 
+        onclose (channel, message) {
+          // Other peer has called close, so we destroy the connection.
+          smapInitiator.destroy()
+        }
+      })
+  
+      let swarm = dswarm(dswarmOpts)
+      let userKey = `${stream.intendedReceiver} + 'smap'`
+
+      swarm.join(stream.publicKey, {
+        lookup: true,
+        announce: true
+      })
+
+      swarm.on('connection', (socket, info) => {
+        pump(socket, smapInitiator, socket)
+      })
+    })
+  })()
+}, [])
+
+// The same as the PCAP initiator above. It listens for new PCAP stream configs via the replication database
+// and initiates each with whichever peers it can connect with, over the intendedReceiver's discovery key.
+
+useEffect(() => {
+  (async () => {
+    const live = streamService.listStreamsByType('pcap')
+    live.on('data', n => {
+      let stream = n.value
+      const pcapInitiator = new PCAP(true, {
+        encrypted: true,
+        noise: true,
+        onhandshake () {
+          pcapInitiator.invite(1, {
+            type: stream.type,
+            name: stream.name,
+            publicKey: stream.publicKey,
+            creator: stream.creator,
+            signature: stream.signature
+          })
+        },
+        onaccept (channel, message) {
+          let db
+          if (stream.type === 'privateRoom') db = getPrivateRoomDb(stream.name)
+          if (stream.type === 'privateChat') db = getPrivateChatDb(stream.name)
+          else pcapInitiator.destroy()
+          let query = new IdQuery(stream.intendedReceiver) 
+          let userKey = await query.getRemoteKey('publicKey')
+          let verified = verify(stream.roomName, message.signature, userKey)
+          if (verified) {
+            db.authorize(message.localPublicKey, () => {
+              let seed = await id.passwordToSeed(id.genSalt(len=32))
+              let encryptedSeed = AES.encrypt(seed, pin)
+              await localDb.acceptChat({ type: stream.type, name: stream.name })
+              await privateDb.addEncryptionSeed(seed, stream.name)
+              pcapInitiator.authorized(1, {
+                type: stream.type,
+                seed: stream.seed,
+                name: stream.name
+              })
+
+             // since we have achieved a successful authorization, we can remove this stream from the
+             // replicationDb
+
+             await handleRemoveStream(stream)
+            })
+
+          }  else {
+            // If the user isn't verified, we may be communicating with a user who 
+            // is masquerading under the given dWeb network address as the target peer. 
+            // Connection must be destroyed.
+            pcapInitiator.destroy()
+          }
+        },
+
+        onrefuse (channel, message) {
+          let query = new IdQuery(message.responder)
+          let userKey = query.getRemoteKey('publicKey')
+          // TODO: check if signature is of roomName or responder name
+          let verified = verify(stream.name, message.signature, userKey)
+          if (verified) {
+            pcapInitiator.destroy()
+            // valid user has refused the request, so remove this PCAP stream from the replicationDb
+            await handleRemoveStream(stream)
+          }
+          // if it's not a valid refuse, simply do nothing.
+        },
+ 
+        onclose (channel, message) {
+          // peer on the other end of the connection calls close, so we destroy the connection
+          pcapInitiator.destroy()
+        }
+      })
+      
+      let userDk = crypto.createHash('sha256').update(stream.intendedReceiver).digest()
+
+      let swarm = dswarm(dswarmOpts)
+      swarm.join(userDk, {
+        lookup: true,
+        announce: true
+      })
+
+      swarm.on('connection', (socket, info) => {
+        pump(socket, pcapInitiator, socket)
+      })
+
+    })
+  })()
+}, [])
+
+// This useEffect listens for SMAP requests (from the initiator) and responds to those requests.
+
+useEffect(() => {
+  (async () => {
+    const smapReceiver = new SMAP(false, {
+      encrypted: true,
+      noise: true,
+      oninvite (channel, message) {
+        let signature = message.signature
+        let query = new IdQuery(message.sender)
+        let userKey = query.getRemoteKey('publicKey')
+        let verified = verify(message.roomName, signature, userKey)
+        if (verified) {
+          let db
+          if (type === 'publicRoom') db = getManifestDb('publicRoom', message.roomName)
+          if (type === 'privateRoom') db = getManifestDb('privateRoom', message.roomName)
+          let secret = id.decryptSecretKey('default', pin)
+          let localPublicKey = db.local.key
+          let signature = sign(message.roomName, secret)
+          smapReceiver.accept(1, {
+            roomName: message.roomName,
+            localPublicKey: localPublicKey,
+            responder: currentIdentity,
+            signature: signature
+          })
+        }  else {
+         
+          // if the peer we're communicating with cannot verify themselves, then they're obviously masquerading
+          // as our target peer. Destroy this connection.
+          smapReceiver.destroy()
+
+        }
+      },
+      onauthorized (channel, message) {
+        let db
+        if (type === 'publicRoom') db = getManifestDb('publicRoom', message.roomName)
+        if (type === 'privateRoom') db = getManifestDb('privateRoom', message.roomName)
+        db.get('/moderators', (err, nodes) => {
+          if (err) {
+            // on error, simply send close. 
+            smapReceiver.close(1, { sender: currentIdentity })
+          }
+          let mods = nodes[nodes.length - 1].value
+          let exists = mods.some(x => x === currentIdentity)
+          if (!exists) {
+            mods.push(currentIdentity)
+            db.put('/moderators', mods, err => {
+              if (err) { 
+                let secret = id.decryptSecretKey('default', pin)
+                let signature = sign(message.roomName, secret)
+                smapReceiver.refuse(1, {
+                  responder: currentIdentity,
+                  signature: signature
+                })
+              }
+            })
+          }  else {
+            // If the moderator already exists within the manifest, then there is no point in this communication
+            // since the currentIdentity is already a moderator. In this case, destroy this connection.
+            smapReceiver.destroy()
+
+          }
+        })
+        // At this point, the moderator is now authorized, and so the connection can be destroyed and 
+        // the stream can be removed from the replicationDb.
+        smapReceiver.destroy()
+      }
+    })
+
+    let swarm = dswarm(dswarmOpts)
+    let userKey = `${currentIdentity} + 'smap'`
+
+    swarm.join(userKey, {
+      lookup: true,
+      announce: true
+    })
+    
+    swarm.on('connection', (socket, info) => {
+      pump(socket, smapReceiver, socket)
+    })
+
   })()
 }, [])
 

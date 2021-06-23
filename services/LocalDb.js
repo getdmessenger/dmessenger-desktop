@@ -225,6 +225,33 @@ export default class DMessengerLocalDb extends Nanoresource {
     })
   }
 
+  async liveStreamSwarms (type) {
+    return this._db.createReadStream(`/network/${type}`, { recursive: true })
+  }
+  
+  async acceptChat (type, name) {
+    return new Promise((resolve, reject) => {
+      this._db.put(`/acceptedChats/${type}/${name}`, {
+        name: name,
+        type: type
+      }, err => {
+        if (err) return reject(err)
+        return resolve(null)
+      })
+    })
+  }
+  
+  async isChatAccepted (type, name) {
+    this._db.get(`/acceptedChats/${type}/${name}`, (err, node) => {
+      if (err) return false
+      else return true
+    })
+  }
+  
+  async getDb () {
+    return this._db
+  }
+
    
 }
 

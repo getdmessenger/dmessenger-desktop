@@ -6,10 +6,11 @@ Description: This module exports a function that retrieves a manifest database b
 
 import path from 'path'
 import dappdb from 'dappdb'
-import { PRIVATE_MANIFESTS_DIR, PUBLIC_MANIFESTS_DIR } from './../config'
+import { PRIVATE_MANIFEST_DIR,
+             PUBLIC_MANIFEST_DIR } from './../config'
 
 export default function getManifestDb (type, roomName) {
-  const storage = path.join((type === 'publicManifest')
+  const storage = path.join((type === 'publicRoom')
                                            ? (PUBLIC_MANIFESTS_DIR, roomName)
                                            : (PRIVATE_MANIFESTS_DIR, roomName)
                                         )

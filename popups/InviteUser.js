@@ -45,7 +45,8 @@ export default function InviteUser ({ show, onClose= f => f, id, name }) {
       name: id,
       publicKey: key,
       creator: id,
-      signature: signature
+      signature: signature,
+      intendedReceiver: user
     })
     setMode('invited')
   }

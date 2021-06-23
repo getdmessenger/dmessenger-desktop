@@ -5,6 +5,8 @@ Description: This module exports helper functions for interfacing with a public 
 */
 
 import { getManifestDb } from './../data/getManifestDb'
+import { isPublicRoomUser, isPrivateRoomUser } from './roomHelpers'
+
 
 export async function isUserBlocked (roomName, roomType, username) {
   let db = await getManifestDb(roomType, roomName)
@@ -159,6 +161,38 @@ export async function addModerator(name, type, opts) {
           return resolve()
         })
       }
+    })
+  })
+}
+
+export async function isRoomMember (user, roomName, type) {
+  if (type === 'publicRoom') return await isPublicRoomUser(user, roomName)
+  if (type === 'privateRoom') return await isPrivateRoomUser(user, roomName)
+  else return false
+}
+
+export async function listModerators (name, type) {
+  return new Promise((resolve, reject) => {
+    let db = await getManifestDb(type, name)
+    db.list('/moderators', (err, list) => {
+      if (err) return reject(err)
+      return resolve(list.map(n => n.value))
+    })
+  })
+}
+
+export async function removeModerator (name, type, user) {
+  return new Promise((resolve, reject) => {
+    let db = getManifestDb(type, name)
+    db.get('/moderators', (err, node) => {
+      if (err) return reject()
+      let mods
+      mods.push(node[node.length - 1].value)
+      let newMods = mods.filter(x => x !== user)
+      db.put('/moderators', newMods, err => {
+        if (err) return reject()
+        else return resolve()
+      })
     })
   })
 }

@@ -73,7 +73,7 @@ export default function useFetchRoom ({ type, room }) {
   useEffect(() => {
     (async () => {
       if (manifestExists(room)) {
-        let db = await getManifestDb((type === 'publicRoom') ? 'publicManifest' : 'privateManifest', room)
+        let db = await getManifestDb(type, room)
         db.get('/roomData', (err, node) => {
           if (err) setError(err)
           setData(node.value)

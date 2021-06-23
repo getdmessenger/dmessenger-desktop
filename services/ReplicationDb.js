@@ -49,13 +49,8 @@ export default class ReplicationDb extends Nanoresource {
     })
   }
 
-  async listStreamsByType (ptype) {
-    const key = SP + ptype + '/'
-    return new Promise((resolve, reject) => {
-      this._db.list(key, (err, nodes) => {
-        if (err) return reject(err)
-        return resolve(nodes.map(n => n.value))
-      })
-    })
+  async listStreamsByType (type) {
+    const key = SP + type + '/'
+    return this._db.createReadStream(key, { recursive: true })
   }
 }

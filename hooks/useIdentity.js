@@ -27,6 +27,7 @@ export function IdentityProvider ({ children }) {
   const [ idSwitch, setIdSwitch ] = useState()
   const [ pinPad, togglePinPad ] = useReducer(pinPad => !pinPad, false)
   const [ switchPopup, toggleSwitchPopup ] = useReducer(switchPopup => !switchPopup, false)
+  const [ config, setConfig ] = useState()
 
   const clearPin = () => setPin()
   const clearDeviceCode = () => setDeviceCode()
@@ -94,7 +95,9 @@ export function IdentityProvider ({ children }) {
                   resetSyncState,
                   resetSyncStateFull,
                   setDeviceId,
-                  setDeviceCode}}>
+                  setDeviceCode,
+                  config,
+                  setConfig}}>
        {children}
     </IdentityContext.Provider>
   )
