@@ -47,8 +47,12 @@ import { publicStatus } from './helpers/chatHelpers'
 import { useIdentity, useMessenger } from './hooks'
 import dswarmOpts from './opts/dSwarmOpts'
 
+import fs from 'fs'
+import path from 'path'
+import { DEVICE_DIR } from './config'
+
 export default function Controller () {
-  const { currentIdentity, pin, pushDeviceId, clearPin, logoutUser, hasSeed, seed, resetSyncState } = useIdentity()
+  const { currentIdentity, pin, pushDeviceId, clearPin, logoutUser, hasSeed, seed, resetSyncState, config, setConfig } = useIdentity()
   const {
     setPublicRoomMessages,
     publicRoomMessages,
@@ -74,8 +78,115 @@ export default function Controller () {
     acceptedRooms
   } = useMessenger()
 
+  const [ deviceRestart, setDeviceRestart ] = useState()
+
   const localDb = getLocalDb(currentIdentity)
   const nq = new NotificationService()
+
+
+  // When the auto-logout time has passed, clear the pin from state and logout the user
+useEffect( () => {
+  (async () => {
+    const configPeriod = config.autoLogoutTime
+    const now = new Date()
+    const periodInMs = configPeriod * 60 * 1000
+    const diff = now - activeTime
+    if (diff > periodInMs) {
+      clearPin()
+      logoutUser()
+    }
+  })()
+})
+
+// rest the most recent active time, on each page-load
+useEffect(() => {
+  pushActiveTime(new Date())
+}, [])
+
+// load the user's default settings from their localDb
+useEffect(() => {
+  (async () => {
+    let configValues = await localDb.getSettings()
+    if (configValues.defaultCurrency) {
+      setConfig(configValues)
+    } else {
+      setConfig({
+        defaultCurrency: 'USD',
+        defaultLanguage: 'EN',
+        autoLogoutTime: 15
+      })
+    }
+  })()
+})
+
+// Generate a random device code, used for device-to-device identity syncing/authorization
+useEffect(() => {
+  const getRandomNumber = max => {
+    let random
+    random = Math.random() // value >= 0.0 and < 1.0
+    random = Math.floor(random * max)
+    random = random + 1
+    return random
+  }
+  const getRandomEight = () => {
+    let result = []
+    while (result.length - 1 !== 8) {
+      let randomNum = getRandomNumber(9)
+      result.push(randomNum)
+    }
+    let numToString = result.join()
+    return Number(numToString)
+  }
+
+  let randomEight = getRandomEight()
+  setDeviceCode(randomEight)
+}, [])
+
+// Generate new deviceId or set current deviceId in state
+useEffect(() => {
+  (async () => {
+    const cwd = DEVICE_DIR
+    fs.stat(cwd, (err, stat) => {
+      if (err) fs.mkdir(cwd)
+    })
+    let deviceFiles = []
+    fs.promises.readdir(cwd, { withFileTypes: true })
+       .then(entries => {
+         entries.filter(entry => entry.isFile())
+         .map(entry => entry.name)
+         .forEach(name => deviceFiles.push(path.join(cwd, name)))
+    if (!deviceFiles.length) {
+      let randomDeviceId = crypto.randomBytes(32)
+      setDeviceId(randomDeviceId)
+      const deviceFilename = `${randomDeviceId}.device`
+      const deviceFile = path.join(cwd, deviceFilename)
+      fs.stat(deviceFile, (err, stat) => {
+        if (err) {
+          const deviceFileData = {
+            deviceId: randomDeviceId,
+            label: os.type(),
+            user: currentIdentity
+          }
+          const dfd = JSON.stringify(deviceFileData)
+          fs.writeFile(deviceFile, dfd)
+        }
+      })
+    }  else {
+      // get deviceId from file and set in state
+      fs.readFileSync(deviceFiles[0], "utf8", (err, text) => {
+        if (err) setDeviceRestart(true)
+        let data = null
+        try {
+          data = JSON.parse(text)
+          setDeviceId(data.deviceId)
+        } catch (e) {
+          setDeviceRestart(true)
+        }
+      })
+    }
+       })
+  })()
+}, [deviceRestart])
 
   /**
    COMMENT:
@@ -105,38 +216,41 @@ export default function Controller () {
    be pulled and placed into state. While the user is using the app, they will be joining new rooms & accepting
    new private chats and these will immediately be placed in the stream and loaded into state. 
   */
-  useEffect( () => {
+   useEffect(() => {
     (async () => {
-       let db = getLocalDb(currentIdentity)
-       let iddb = getIdentityDb(currentIdentity)
-
-       let privateRoomStream = db.createReadStream('/privateRooms/', {
-         recursive: true
-       })
-
-       let privateChatStream = db.createReadStream('/privateChats/', {
-         recursive: true
-       })
-
-       let publicRoomStream = iddb.createReadStream('/apps/dmessenger/publicRooms/', {
-         recursive: true
-       })
-
-       privateRoomStream.on('data', n => {
-         let data = n.value
-         addPrivateRoom(...privateRooms, data)
-       })
-
-       publicRoomStream.on('data', n => {
-         let data = n.value
-         addPublicRoom(...publicRooms, data)
-       })
-
-       privateChatStream.on('data', data => {
-         let data = n.value
-         addPrivateChat(...privateChats, data)
-       })
-     })()
+      // retrieve actual database instance from the LocalDB service, for the purpose of streaming private room/chat lists.
+      let db = localDb.getDb()
+      // we can get the actual database instance off the identity document using getIdentityDb()
+      // NOTE: we should probably create a get() helper for doing this with the localDb in the future.
+      let iddb = getIdentityDb(currentIdentity)
+  
+      let privateRoomStream = db.createReadStream('/privateRooms/', {
+        recursive: true
+      })
+  
+      let privateChatStream = db.createReadStream('/privateChats/', {
+        recursive: true
+      })
+  
+      let publicRoomStream = iddb.createReadStream('/apps/dmessenger/publicRooms/', {
+        recursive: true
+      })
+  
+      privateRoomStream.on('data', n => {
+        let data = n.value
+        addPrivateRoom(...privateRooms, data)
+      })
+  
+      privateChatStream.on('data', n => {
+        let data = n.value
+        addPrivateChat(...privateChats, data)
+      })
+  
+      publicRoomStream.on('data', n => {
+        let data = n.value
+        addPublicRoom(...publicRooms, data)
+      })
+    })()
   }, [])
 
   /**
@@ -169,8 +283,8 @@ export default function Controller () {
              if (type === 'privateRoom') db = await getPrivateRoomDb(data.roomName)
              if (type === 'identities') db = await getIdentityDb(data.username)
              if (type === 'privateChat') db = await getPrivateChatDb(data.username)
-             if (type === 'privateManifest') db = await getManifestDb('private', data.roomName)
-             if (type === 'publicManifest') db = await getManifestDb('public', data.roomName)
+             if (type === 'privateManifest') db = await getManifestDb('privateRoom', data.roomName)
+             if (type === 'publicManifest') db = await getManifestDb('publicRoom', data.roomName)
         
              let swarm = dswarm(dswarmOpts)
              swarm.join(data.discoveryKey, {
