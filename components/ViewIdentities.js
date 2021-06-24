@@ -7,7 +7,7 @@ Description: This component is the main render within the Identities page (pages
 import React, { useState, useEffect } from 'react'
 import { Container, Row, Col, Button } from 'react-bootstrap'
 import { useIdentity } from './../hooks/useIdentity'
-import { Identity } from './../services/Identity'
+import { getIdentityInstance } from './../identity'
 import { AddSubIdentity } from './../popups'
 import { MasterIdentity, IdentityItem } from './'
 
@@ -16,7 +16,7 @@ export default function ViewIdentities ({}) {
   const [ showAdd, setShowAdd ] = useState()
   
   const { currentIdentity } = useIdentity()
-  const id = new Identity(currentIdentity)
+  const id = await getIdentityInstance(currentIdentity)
   
   useEffect(() => {
     (async () => {

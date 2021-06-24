@@ -16,21 +16,20 @@ If pin is verified using verify(), this function returns true, if falsy, it retu
 */
 
 import { sign, verify } from '@ddatabase/crypto'
-import { DWebIdentity } from '@dwebid/core'
-import { PrivateDb } from './../services/PrivateDb'
+import { Identity } from './../services'
+import { getIdentityInstance } from './../identity'
 
 export default async function confirmPin (user, pin) {
   return new Promise((resolve) => {
-    const id = new DWebIdentity(user)
-    let decryptedSecretKey = id.decryptSecretKey('default', pin)
+    const id = await getIdentityInstance(user)
+    const idService = new Identity(user)
+    let decryptedSecretKey = await idService.decryptSecretKey('default', pin)
     let signature = sign('test', decryptedSecretKey)
     let defaultRecord
     id.getDefaultRecord()
-       .then(d => {
-         defaultRecord = d
-       })
+      .then(d => defaultRecord = d)
     let publicKey = defaultRecord.publicKey
-    let verify = ('test', signature, publicKey);
-    return resolve(verify)
+    let v = verify('test', signature, publicKey)
+    return resolve(v)
   })
 }
